@@ -1,0 +1,171 @@
+<section class="assistant-hero">
+  <div>
+    <p class="eyebrow">Legacy page + AI integration</p>
+    <h1>VM Association context assistant</h1>
+    <p class="lede">
+      Angular contributes transient UI state. Django remains the business source of truth.
+      FastAPI assembles both contexts and streams the assistant response back as SSE.
+    </p>
+  </div>
+  <div class="flow-map" aria-label="Assistant request flow">
+    <span>Page state</span><i>+</i><span>Django API</span><i>→</i><span>FastAPI</span><i>→</i><span>SSE</span>
+  </div>
+</section>
+
+@if (errorMessage) {
+  <section class="error-banner">
+    <strong>Request stopped</strong>
+    <span>{{ errorMessage }}</span>
+    <a routerLink="/architecture">Open the login lab</a>
+  </section>
+}
+
+<section class="assistant-workspace">
+  <div class="context-column">
+    <section class="context-toolbar">
+      <div>
+        <p class="eyebrow">Original page state</p>
+        <h2>VM inventory</h2>
+      </div>
+      <div class="filter-row" aria-label="VM status filter">
+        <button type="button" [class.active]="visibleFilter === 'all'" (click)="setFilter('all')">All</button>
+        <button type="button" [class.active]="visibleFilter === 'active'" (click)="setFilter('active')">Active</button>
+        <button type="button" [class.active]="visibleFilter === 'inactive'" (click)="setFilter('inactive')">Inactive</button>
+      </div>
+    </section>
+
+    <div class="record-strip">
+      @for (record of visibleRecords; track record.id) {
+        <button
+          type="button"
+          class="record-card"
+          [class.selected]="record.id === selectedRecordId"
+          (click)="selectRecord(record.id)"
+        >
+          <span class="status-dot" [class.inactive]="!record.active"></span>
+          <strong>{{ record.name }}</strong>
+          <small>{{ record.category }} / {{ record.active ? 'active' : 'inactive' }}</small>
+        </button>
+      }
+    </div>
+
+    @if (isLoadingContext) {
+      <div class="loading-card">Loading validated Django context…</div>
+    } @else {
+      @if (context; as pageContext) {
+        <section class="selection-card">
+        <div class="selection-heading">
+          <div>
+            <p class="eyebrow">Selected VM #{{ pageContext.selection.record_id }}</p>
+            <h2>{{ pageContext.selection.name }}</h2>
+          </div>
+          <span class="source-chip">{{ pageContext.page.source }}</span>
+        </div>
+
+        <div class="selection-facts">
+          <div><small>Category</small><strong>{{ pageContext.selection.category }}</strong></div>
+          <div><small>Status</small><strong>{{ pageContext.selection.active ? 'Active' : 'Inactive' }}</strong></div>
+          <div><small>Associations</small><strong>{{ pageContext.associations.length }}</strong></div>
+          <div><small>Warnings</small><strong>{{ pageContext.warnings.length }}</strong></div>
+        </div>
+
+        <div class="panel-tabs">
+          <button type="button" [class.active]="activePanel === 'associations'" (click)="setPanel('associations')">
+            Associations
+          </button>
+          <button type="button" [class.active]="activePanel === 'warnings'" (click)="setPanel('warnings')">
+            Warnings
+          </button>
+        </div>
+
+        @if (activePanel === 'associations') {
+          <div class="association-list">
+            @for (association of pageContext.associations; track association.id) {
+              <button type="button" class="association-row" (click)="toggleAssociation(association.id)">
+                <span class="association-icon">{{ association.type === 'application' ? 'APP' : 'EXT' }}</span>
+                <span>
+                  <strong>{{ association.name }}</strong>
+                  <small>{{ association.type }}</small>
+                </span>
+                <span class="status-pill" [attr.data-status]="association.status">{{ association.status }}</span>
+                @if (isAssociationExpanded(association.id)) {
+                  <p>This expanded row id is included in the transient client context sent to FastAPI.</p>
+                }
+              </button>
+            } @empty {
+              <p class="empty-state">No associations are configured for this VM.</p>
+            }
+          </div>
+        } @else {
+          <div class="warning-list">
+            @for (warning of pageContext.warnings; track warning) {
+              <p>{{ warning }}</p>
+            } @empty {
+              <p class="empty-state">Django returned no warnings for this VM.</p>
+            }
+          </div>
+        }
+        </section>
+      }
+    }
+  </div>
+
+  <aside class="chat-column">
+    <header class="chat-header">
+      <div>
+        <p class="eyebrow">FastAPI streaming assistant</p>
+        <h2>Ask about this page</h2>
+      </div>
+      <span class="live-chip" [class.streaming]="isStreaming">
+        {{ isStreaming ? 'streaming' : 'ready' }}
+      </span>
+    </header>
+
+    <div class="chat-messages" aria-live="polite">
+      @if (!messages.length) {
+        <div class="assistant-intro">
+          <span>AI</span>
+          <p>I only receive the selected VM context and the allowed UI state shown on this page.</p>
+        </div>
+      }
+      @for (message of messages; track $index) {
+        <div class="message" [class.user-message]="message.role === 'user'">
+          <small>{{ message.role === 'user' ? 'You' : 'Assistant' }}</small>
+          <p>{{ message.content || '…' }}</p>
+        </div>
+      }
+    </div>
+
+    @if (streamSource) {
+      <p class="stream-source">Context source: {{ streamSource }}</p>
+    }
+
+    <div class="quick-prompts">
+      @for (prompt of quickPrompts; track prompt) {
+        <button type="button" [disabled]="!context || isStreaming" (click)="sendQuickPrompt(prompt)">
+          {{ prompt }}
+        </button>
+      }
+    </div>
+
+    <form class="composer" (ngSubmit)="sendQuestion()">
+      <label for="assistant-question">Question</label>
+      <textarea
+        id="assistant-question"
+        [formControl]="question"
+        rows="3"
+        placeholder="Ask about the selected VM…"
+      ></textarea>
+      <div class="composer-actions">
+        <small>{{ question.value.length }} / 500</small>
+        @if (isStreaming) {
+          <button type="button" class="stop-button" (click)="stopStream()">Stop</button>
+        } @else {
+          <button type="button" [disabled]="!context || question.invalid" (click)="sendQuestion()">
+            Stream answer
+          </button>
+        }
+      </div>
+    </form>
+  </aside>
+</section>

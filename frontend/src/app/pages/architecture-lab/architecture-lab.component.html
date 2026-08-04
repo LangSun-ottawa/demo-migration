@@ -1,0 +1,180 @@
+<section class="lab-hero">
+  <div>
+    <p class="eyebrow">Request Architecture Lab</p>
+    <h1>Follow one request through every boundary.</h1>
+    <p class="lede">
+      This page makes middleware, class-owned schemas, cleaned payloads, and ORM parameter
+      binding visible. Use the attack-shaped defaults: safe code should treat them as data.
+    </p>
+  </div>
+  <div class="session-chip" [class.authenticated]="session?.authenticated">
+    <span class="status-dot"></span>
+    <div>
+      <small>Django session</small>
+      <strong>{{ session?.authenticated ? session?.username : 'AnonymousUser' }}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="flow-strip" aria-label="Request flow">
+  <span>Session middleware</span>
+  <i>01</i>
+  <span>Auth gate</span>
+  <i>02</i>
+  <span>FdcView.dispatch</span>
+  <i>03</i>
+  <span>Class schema</span>
+  <i>04</i>
+  <span>ORM adapter</span>
+</section>
+
+@if (errorMessages.length) {
+  <section class="alert">
+    @for (message of errorMessages; track message) {
+      <span>{{ message }}</span>
+    }
+  </section>
+}
+
+<section class="lab-grid">
+  <article class="panel auth-panel">
+    <header>
+      <p class="step-number">01 / AUTH</p>
+      <h2>Session boundary</h2>
+      <p>Call the protected endpoint before and after login to see where dispatch begins.</p>
+    </header>
+
+    <form [formGroup]="loginForm" (ngSubmit)="login()">
+      <label>
+        <span>Username</span>
+        <input formControlName="username" autocomplete="username" />
+      </label>
+      <label>
+        <span>Password</span>
+        <input formControlName="password" autocomplete="current-password" type="password" />
+      </label>
+      <button type="submit">Create Django session</button>
+    </form>
+
+    <div class="button-row">
+      <button type="button" class="secondary" (click)="callProtectedEndpoint()">
+        Call protected API
+      </button>
+      <button type="button" class="ghost" (click)="logout()">Logout</button>
+    </div>
+
+    <p class="code-note"><code>demo / DemoPass123!</code></p>
+  </article>
+
+  <article class="panel security-panel">
+    <header>
+      <p class="step-number">02 / VALIDATION</p>
+      <h2>Three different defenses</h2>
+      <p>Normalization, output escaping, and rejection solve different problems.</p>
+    </header>
+
+    <form [formGroup]="securityForm" (ngSubmit)="inspectSecurity()">
+      <label>
+        <span>Display text: trim + HTML escape</span>
+        <input formControlName="display_name" />
+      </label>
+      <label>
+        <span>SQL lookup: preserve + bind</span>
+        <input formControlName="lookup_term" />
+      </label>
+      <label>
+        <span>Identifier: allowlist</span>
+        <input formControlName="safe_identifier" />
+      </label>
+      <button type="submit">Run safe processing</button>
+    </form>
+
+    <button type="button" class="danger full-button" (click)="inspectSecurity(true)">
+      Inject semicolon and trigger 444
+    </button>
+  </article>
+
+  <article class="panel model-panel">
+    <header>
+      <p class="step-number">03 / MODELS</p>
+      <h2>Same input, two ORMs</h2>
+      <p>The response exposes each SQL template and its separate bound parameters.</p>
+    </header>
+
+    <form [formGroup]="modelForm" (ngSubmit)="compareModels()">
+      <label>
+        <span>Search term</span>
+        <input formControlName="term" />
+      </label>
+      <button type="submit">Compare queries</button>
+    </form>
+
+    @if (catalog; as data) {
+      <div class="model-cards">
+        @for (model of data.models; track model.class) {
+          <div>
+            <strong>{{ model.class }}</strong>
+            <code>{{ model.base }}</code>
+            <span>{{ model.session }}</span>
+          </div>
+        }
+      </div>
+    }
+  </article>
+
+  <article class="panel schema-panel">
+    <header>
+      <p class="step-number">04 / CLASS CONTRACTS</p>
+      <h2>Schema belongs to the View</h2>
+    </header>
+
+    @if (catalog; as data) {
+      <div class="contract-list">
+        @for (contract of data.contracts; track contract.view_class) {
+          <section>
+            <div>
+              <strong>{{ contract.view_class }}</strong>
+              <span>{{ contract.method }}</span>
+            </div>
+            <code>{{ contract.schema_name }}</code>
+            <ul>
+              @for (field of contract.fields; track field) {
+                <li>{{ field }}</li>
+              }
+            </ul>
+          </section>
+        }
+      </div>
+    }
+  </article>
+</section>
+
+<section class="observability">
+  <div class="trace-panel">
+    <header>
+      <p class="eyebrow">Live request trace</p>
+      <h2>{{ runningAction || 'Run an action above' }}</h2>
+    </header>
+
+    @if (trace.length) {
+      <ol>
+        @for (step of trace; track $index) {
+          <li>
+            <span>{{ $index + 1 }}</span>
+            <div>
+              <strong>{{ step.stage }}</strong>
+              <p>{{ step.detail }}</p>
+            </div>
+          </li>
+        }
+      </ol>
+    } @else {
+      <p class="empty-state">The middleware and dispatch stages will appear here.</p>
+    }
+  </div>
+
+  <div class="response-panel">
+    <p class="eyebrow">Structured response</p>
+    <pre>{{ output | json }}</pre>
+  </div>
+</section>

@@ -1,0 +1,203 @@
+<section class="hero-card">
+  <div>
+    <p class="eyebrow">Angular SPA Surface</p>
+    <h1>API contract demo form</h1>
+    <p class="lede">
+      This is a playground with four independent API experiments, not one large business form.
+      Pick one card at a time; Angular sends the request and Django validates it centrally.
+    </p>
+  </div>
+  <div class="hero-actions">
+    <a routerLink="/demo/form">Reset form route</a>
+    <a routerLink="/legacy/report">Open embedded legacy page</a>
+    <a href="/legacy/report/">Open raw Django page</a>
+  </div>
+</section>
+
+<section class="guide-card">
+  <div>
+    <p class="eyebrow">How to use this page</p>
+    <h2>Start with the defaults</h2>
+    <p>
+      Every default value is valid. Submit one experiment, inspect its JSON result, then change
+      one field to see which rule rejects or converts it.
+    </p>
+  </div>
+  <ol>
+    <li><strong>JSON body</strong><span>Shows nested objects, arrays, optional fields, and type validation.</span></li>
+    <li><strong>Query string</strong><span>Shows URL parameter conversion and optional filters.</span></li>
+    <li><strong>File upload</strong><span>Shows filename, content type, and size validation without persistence.</span></li>
+    <li><strong>Redirect contract</strong><span>Shows Angular reacting to structured 303 and 338 responses.</span></li>
+  </ol>
+</section>
+
+@if (banner) {
+  <section class="banner banner-warm">
+    <strong>Redirect handled</strong>
+    <span>{{ banner }}</span>
+  </section>
+}
+
+@if (apiErrors.length) {
+  <section class="banner banner-danger">
+    <strong>API response</strong>
+    <ul>
+      @for (message of apiErrors; track message) {
+        <li>{{ message }}</li>
+      }
+    </ul>
+  </section>
+}
+
+<section class="grid">
+  <article class="card">
+    <header>
+      <p class="eyebrow">POST /api/demo/echo</p>
+      <h2>Validated JSON body</h2>
+      <p class="card-purpose">Submit this card first. It demonstrates the richest request schema.</p>
+    </header>
+
+    <form [formGroup]="echoForm" (ngSubmit)="submitEcho()">
+      <label>
+        <span>Name</span>
+        <input formControlName="name" />
+        <small>Required string, maximum 60 characters. The result also shows trimming.</small>
+      </label>
+
+      <div class="split">
+        <label>
+          <span>Age</span>
+          <input formControlName="age" type="number" />
+          <small>Converted to an integer and restricted to 18-99.</small>
+        </label>
+
+        <label>
+          <span>Source</span>
+          <input formControlName="source" />
+          <small>Sent as nested JSON: <code>metadata.source</code>.</small>
+        </label>
+      </div>
+
+      <label>
+        <span>Tags</span>
+        <input formControlName="tags" />
+        <small>Comma-separated text becomes a string array; every tag is validated.</small>
+      </label>
+
+      <label>
+        <span>Optional note</span>
+        <textarea formControlName="note" rows="3"></textarea>
+        <small>Demonstrates an optional schema key. Blank means the key is omitted.</small>
+      </label>
+
+      <label class="toggle">
+        <input formControlName="active" type="checkbox" />
+        <span>Active user</span>
+      </label>
+      <p class="field-help">Demonstrates a real JSON boolean rather than the text values "true" or "false".</p>
+
+      <button type="submit">Submit JSON payload</button>
+    </form>
+
+    @if (echoResponse; as result) {
+      <div class="response">
+        <p class="response-label">Validated result</p>
+        <pre>{{ result | json }}</pre>
+      </div>
+    }
+  </article>
+
+  <article class="card">
+    <header>
+      <p class="eyebrow">GET /api/demo/search</p>
+      <h2>Validated query string</h2>
+      <p class="card-purpose">This is a separate GET request. It does not use values from the JSON card.</p>
+    </header>
+
+    <form [formGroup]="searchForm" (ngSubmit)="runSearch()">
+      <label>
+        <span>Search term</span>
+        <input formControlName="term" />
+        <small>Required text used to filter the in-memory demo records by name.</small>
+      </label>
+
+      <div class="split">
+        <label>
+          <span>Limit</span>
+          <input formControlName="limit" type="number" />
+          <small>Optional integer from 1-10.</small>
+        </label>
+
+        <label>
+          <span>Active filter</span>
+          <select formControlName="active">
+            <option value="">Any</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+          <small>Optional boolean: Any omits the parameter; the others become true or false.</small>
+        </label>
+      </div>
+
+      <button type="submit">Run search</button>
+    </form>
+
+    @if (searchResponse; as result) {
+      <div class="response">
+        <p class="response-label">Validated result</p>
+        <pre>{{ result | json }}</pre>
+      </div>
+    }
+  </article>
+
+  <article class="card">
+    <header>
+      <p class="eyebrow">POST /api/demo/upload</p>
+      <h2>Validated file upload</h2>
+      <p class="card-purpose">Optional experiment for the <code>files</code> schema mode.</p>
+    </header>
+
+    <div class="upload-panel">
+      <input accept=".txt,.md,.json,text/plain,application/json,text/markdown" type="file" (change)="onFileSelected($event)" />
+      <p class="helper">
+        Allowed types: <code>.txt</code>, <code>.md</code>, <code>.json</code>. Max size: 1 MB.
+      </p>
+      @if (selectedFile) {
+        <p class="selected-file">Selected: {{ selectedFile.name }}</p>
+      }
+      <button type="button" (click)="uploadFile()">Upload file</button>
+    </div>
+
+    @if (uploadResponse; as result) {
+      <div class="response">
+        <p class="response-label">Validated result</p>
+        <pre>{{ result | json }}</pre>
+      </div>
+    }
+  </article>
+
+  <article class="card accent-card">
+    <header>
+      <p class="eyebrow">Redirect contract</p>
+      <h2>303 and 338 handling</h2>
+      <p class="card-purpose">Optional navigation experiment; there are no input fields.</p>
+    </header>
+
+    <p>
+      These buttons intentionally trigger non-200 API responses that still carry structured
+      JSON. The Angular interceptor reads <code>status.redirect</code> and routes accordingly.
+    </p>
+
+    <div class="button-row">
+      <button type="button" class="secondary" (click)="triggerTemporaryRedirect()">
+        Trigger 303 redirect
+      </button>
+      <button type="button" (click)="triggerRebootRedirect()">
+        Trigger reboot transition
+      </button>
+      <button type="button" class="danger" (click)="triggerErrorRedirect()">
+        Trigger 338 redirect
+      </button>
+    </div>
+  </article>
+</section>

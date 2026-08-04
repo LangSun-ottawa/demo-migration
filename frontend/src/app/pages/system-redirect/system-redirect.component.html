@@ -1,0 +1,33 @@
+<section class="redirect-card">
+  <p class="eyebrow">303 Redirect Target</p>
+  <h1>{{ title }}</h1>
+  <p class="copy">{{ message }}</p>
+
+  <div class="status-panel">
+    <div class="pulse" aria-hidden="true"></div>
+    <div>
+      <p class="status-label">Polling status</p>
+      <p class="status-copy">{{ statusLabel }}</p>
+    </div>
+  </div>
+
+  <dl class="meta">
+    <div>
+      <dt>Operation</dt>
+      <dd>{{ operation }}</dd>
+    </div>
+    <div>
+      <dt>Poll count</dt>
+      <dd>{{ pollCount }}</dd>
+    </div>
+    <div>
+      <dt>Check endpoint</dt>
+      <dd><code>/api/demo/system/status</code></dd>
+    </div>
+  </dl>
+
+  <div class="actions">
+    <a routerLink="/demo/form">Back to demo form</a>
+    <a href="/legacy/report/">Open raw Django page</a>
+  </div>
+</section>

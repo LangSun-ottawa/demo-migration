@@ -1,0 +1,26 @@
+<section class="legacy-layout">
+  <header class="legacy-hero">
+    <div>
+      <p class="eyebrow">Legacy Container</p>
+      <h1>{{ title }}</h1>
+      <p class="copy">{{ description }}</p>
+    </div>
+
+    <div class="hero-actions">
+      <a routerLink="/demo/form">Open Angular form</a>
+      <a href="/legacy/report/" target="_blank" rel="noopener">Open raw Django page</a>
+    </div>
+  </header>
+
+  <section class="frame-card">
+    <div class="frame-toolbar">
+      <span class="badge">Angular shell</span>
+      <code>/new/legacy/report</code>
+      <span class="divider"></span>
+      <span class="badge badge-muted">Django target</span>
+      <code>/legacy/report/</code>
+    </div>
+
+    <iframe [src]="legacyUrl" title="Legacy Django page" class="legacy-frame"></iframe>
+  </section>
+</section>

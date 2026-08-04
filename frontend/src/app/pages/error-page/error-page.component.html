@@ -1,0 +1,26 @@
+<section class="error-card">
+  <p class="eyebrow">338 Redirect Target</p>
+  <h1>Angular caught a structured redirect</h1>
+  <p class="copy">
+    The backend intentionally returned a non-standard redirect code with a JSON body. The
+    interceptor read <code>status.redirect</code> and routed you here instead of treating the
+    response like an opaque browser redirect.
+  </p>
+
+  <dl class="meta">
+    <div>
+      <dt>Reason</dt>
+      <dd>{{ reason }}</dd>
+    </div>
+    <div>
+      <dt>Route owner</dt>
+      <dd>Angular SPA</dd>
+    </div>
+  </dl>
+
+  <div class="actions">
+    <a routerLink="/demo/form">Back to demo form</a>
+    <a routerLink="/legacy/report">Open embedded legacy page</a>
+    <a href="/legacy/report/">Open raw Django page</a>
+  </div>
+</section>

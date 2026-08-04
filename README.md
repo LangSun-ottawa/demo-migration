@@ -1,0 +1,176 @@
+# Coexist Demo
+
+> This repository is an architecture demo, not a production deployment. Its
+> built-in credentials, development secret, SQLite databases, and permissive
+> local CORS configuration must be replaced before production use.
+
+This standalone demo shows:
+
+- Django templates and Angular SPA routes living in one Django project
+- `/legacy/...` routes rendered by Django
+- `/new/...` routes served as an Angular shell
+- a simplified `FdcView + param_schemas` validation layer
+- a standardized `{status, result, error}` API contract
+- Angular interceptor handling `303` and `338` redirect semantics
+- a visible Django session authentication middleware flow
+- input rejection, normalization, HTML escaping, and SQL parameter binding
+- side-by-side Django ORM and SQLAlchemy declarative models
+- a contextual assistant that combines Angular page state with canonical Django data
+- a FastAPI orchestration boundary with Server-Sent Events streaming
+
+## Recommended Demo Walkthrough
+
+The three navigation pages have different jobs:
+
+1. Open `/new/legacy/report` first. Angular owns the shell and side navigation,
+   while an iframe displays the server-rendered `/legacy/report/` Django
+   template.
+2. Open `/new/architecture` for the main interview walkthrough. Call the
+   protected API while logged out, log in with the demo credentials, call it
+   again, run the security examples, and compare Django ORM with SQLAlchemy.
+3. Use `/new/demo/form` only as an API contract playground. Its JSON, query,
+   upload, and redirect cards are four independent experiments, not sections of
+   one business form.
+4. Open `/new/context-assistant` after logging in. Select a VM, change the
+   visible page state, and stream a context-aware answer through FastAPI.
+
+On the API contract playground:
+
+- `name`, `age`, and `active` demonstrate string, integer, and boolean values.
+- `source` is sent as the nested value `metadata.source`.
+- comma-separated `tags` are converted into a validated string array.
+- `note` demonstrates an optional JSON property.
+- search `term`, `limit`, and `active` demonstrate required and optional query
+  parameters.
+- the file input demonstrates the `files` schema mode and validates extension,
+  content type, and maximum size without saving the file.
+- the redirect buttons have no business input; they demonstrate frontend
+  handling of structured `303` and `338` API responses.
+
+## Backend
+
+Install dependencies once:
+
+```bash
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements.txt
+```
+
+```bash
+cd backend
+../.venv/bin/python manage.py migrate
+../.venv/bin/python manage.py runserver 127.0.0.1:8001
+```
+
+## FastAPI Assistant Gateway
+
+Run the assistant gateway in a second terminal:
+
+```bash
+cd coexist_demo
+DJANGO_BASE_URL=http://127.0.0.1:8001 \
+  ./.venv/bin/uvicorn assistant_gateway.app:app --host 127.0.0.1 --port 8002
+```
+
+The assistant request path is:
+
+```text
+Angular transient page state + question
+  -> FastAPI /assistant/stream
+  -> Django /api/demo/secure/page-context?record_id=...
+  -> FdcView validation + Django ORM
+  -> FastAPI assistant provider
+  -> SSE meta / delta / done events
+  -> Angular ReadableStream parser
+```
+
+Django remains the source of truth. FastAPI forwards the Django session cookie
+and never opens `db.sqlite3` directly. The browser is allowed to contribute only
+the small Pydantic-validated UI state contract: selected VM, visible filter,
+active panel, and expanded association ids.
+
+The default `DeterministicAssistantProvider` requires no model key. Replace that
+provider when connecting a real model. An agent SDK is intentionally not used
+until the assistant needs autonomous tool selection, a multi-step agent loop,
+long-running session state, or sub-agents.
+
+## Frontend
+
+```bash
+cd frontend
+npm ci
+npm start
+```
+
+To build Angular assets for Django:
+
+```bash
+cd frontend
+npm run build
+```
+
+Then open:
+
+- `http://127.0.0.1:8001/legacy/report/`
+- `http://127.0.0.1:8001/new/demo/form`
+- `http://127.0.0.1:8001/new/architecture`
+- `http://127.0.0.1:8001/new/context-assistant`
+
+The public-safe design decisions and interview framing are documented in
+[`docs/MIGRATION_NOTES.md`](docs/MIGRATION_NOTES.md).
+
+## Security & ORM Lab
+
+Demo credentials:
+
+```text
+username: demo
+password: DemoPass123!
+```
+
+The architecture lab demonstrates this request path:
+
+```text
+Django session middleware
+  -> demo authentication middleware
+  -> FdcView.dispatch
+  -> per-class param_schemas
+  -> validated request.fdc
+  -> Django ORM / SQLAlchemy
+  -> FdcJsonResponse
+```
+
+Recommended walkthrough:
+
+1. Log out and call the protected model endpoint. The request stops in
+   middleware before dispatch.
+2. Log in and call it again. The response trace reaches `FdcView.dispatch` and
+   `MODEL_COMPARISON_SCHEMA`.
+3. Run the default security payload. HTML is escaped, surrounding whitespace is
+   removed, and the SQL-shaped lookup term remains data.
+4. Trigger the semicolon example. `SECURITY_INSPECTION_SCHEMA` rejects the
+   identifier with HTTP `444`.
+5. Compare model queries. Both ORM results expose a SQL template and separate
+   bound parameters.
+
+The demo deliberately distinguishes:
+
+- validation: reject values outside an allowed contract
+- normalization: trim or coerce valid values
+- output handling: HTML-escape text intended for display
+- SQL injection defense: use ORM-generated parameterized queries
+
+Deleting quotes from search input is not used as a SQL injection defense.
+
+The two ORMs use separate local SQLite files so the demo remains standalone.
+The architectural difference is the model/session API, not the database server.
+
+Useful checks:
+
+```bash
+cd backend
+../.venv/bin/python manage.py test
+
+cd ../frontend
+npm test -- --watch=false --browsers=ChromeHeadless
+```

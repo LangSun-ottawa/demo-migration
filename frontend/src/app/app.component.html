@@ -1,0 +1,41 @@
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand-card">
+      <p class="kicker">Django + Angular coexistence</p>
+      <h1>{{ title }}</h1>
+      <p class="brand-copy">
+        Side navigation stays in Angular. Legacy Django pages can still live underneath it.
+      </p>
+    </div>
+
+    @for (section of navSections; track section.label) {
+      <section class="nav-section">
+        <p class="section-label">{{ section.label }}</p>
+        <div class="nav-items">
+          @for (item of section.items; track item.label) {
+            @if (item.path) {
+              <a
+                class="nav-item"
+                [routerLink]="item.path"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                <span class="item-title">{{ item.label }}</span>
+                <span class="item-copy">{{ item.description }}</span>
+              </a>
+            } @else {
+              <a class="nav-item external" [href]="item.href">
+                <span class="item-title">{{ item.label }}</span>
+                <span class="item-copy">{{ item.description }}</span>
+              </a>
+            }
+          }
+        </div>
+      </section>
+    }
+  </aside>
+
+  <main class="content">
+    <router-outlet></router-outlet>
+  </main>
+</div>

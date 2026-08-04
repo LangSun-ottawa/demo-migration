@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Legacy Report</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        margin: 0;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        background: #f6f8fb;
+        color: #16213e;
+      }
+      .page {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 48px 24px 64px;
+      }
+      .hero {
+        padding: 28px 32px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #16324f, #2f6690);
+        color: #fff;
+        box-shadow: 0 18px 40px rgba(22, 50, 79, 0.18);
+      }
+      .hero a {
+        color: #fff;
+        font-weight: 700;
+      }
+      .table-card {
+        margin-top: 28px;
+        background: #fff;
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        text-align: left;
+        padding: 14px 12px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .pill.on {
+        background: #d1fae5;
+        color: #047857;
+      }
+      .pill.off {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <p>Django Template + Angular SPA coexistence demo</p>
+        <h1>Legacy server-rendered report</h1>
+        <p>
+          This page is rendered entirely by Django templates. The call to action
+          below jumps into the Angular application without leaving the same Django project.
+        </p>
+        <p><a href="/new/demo/form">Open the Angular demo form</a></p>
+      </section>
+
+      <section class="table-card">
+        <h2>Server-side mock records</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in records %}
+              <tr>
+                <td>{{ record.id }}</td>
+                <td>{{ record.name }}</td>
+                <td>{{ record.category }}</td>
+                <td>
+                  <span class="pill {% if record.active %}on{% else %}off{% endif %}">
+                    {% if record.active %}Active{% else %}Inactive{% endif %}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </body>
+</html>

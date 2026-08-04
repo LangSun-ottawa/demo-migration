@@ -1,0 +1,23 @@
+from enum import Enum
+
+
+class RETURN_CODE(Enum):
+    SUCCESS = 1
+    FAILURE = 0
+
+
+class ERROR_CODE(Enum):
+    VALIDATION = 'VE'
+    BUSINESS = 'BE'
+    SYSTEM = 'SE'
+
+
+class HTTP_STATUS_CODE(Enum):
+    SUCCESS = 200
+    UNAUTHORIZED = 401
+    SEE_OTHER_REDIRECT = 303
+    REDIRECT = 338
+    BUSINESS_ERROR = 400
+    VALIDATION_ERROR = 444
+    SERVICE_UNAVAILABLE = 503
+    SYSTEM_ERROR = 500

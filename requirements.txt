@@ -1,0 +1,5 @@
+Django==5.2.13
+SQLAlchemy==2.0.41
+fastapi==0.141.1
+httpx==0.28.1
+uvicorn==0.52.1
