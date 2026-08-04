@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 from collections.abc import AsyncIterator
 from typing import Literal, Protocol
 from uuid import uuid4
@@ -11,8 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from assistant_gateway.config import get_assistant_settings
 
-DJANGO_BASE_URL = os.getenv('DJANGO_BASE_URL', 'http://127.0.0.1:8001').rstrip('/')
+
+SETTINGS = get_assistant_settings()
+DJANGO_BASE_URL = SETTINGS.django_base_url.rstrip('/')
 
 
 class ChatTurn(BaseModel):
@@ -191,7 +193,12 @@ app.add_middleware(
 
 @app.get('/health')
 async def health():
-    return {'status': 'ok', 'django_base_url': DJANGO_BASE_URL}
+    return {
+        'status': 'ok',
+        'django_base_url': DJANGO_BASE_URL,
+        'assistant_provider': SETTINGS.assistant_provider,
+        'assistant_model': SETTINGS.assistant_model,
+    }
 
 
 @app.post('/assistant/stream')

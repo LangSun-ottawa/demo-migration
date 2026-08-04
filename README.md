@@ -72,6 +72,41 @@ DJANGO_BASE_URL=http://127.0.0.1:8001 \
   ./.venv/bin/uvicorn assistant_gateway.app:app --host 127.0.0.1 --port 8002
 ```
 
+### API key configuration
+
+Copy the committed template to the ignored local secrets file:
+
+```bash
+cp .env.example .env
+```
+
+Configure future assistant providers in the root `.env` file:
+
+```dotenv
+ASSISTANT_PROVIDER=your-provider
+# Paste the real key only in your ignored .env file.
+ASSISTANT_API_KEY=
+ASSISTANT_BASE_URL=https://api.example.com/v1
+ASSISTANT_MODEL=your-model
+```
+
+API keys are backend-only and must never be placed in `frontend/`, Angular
+environment files, browser storage, or committed source. Provider code reads
+the centralized typed configuration like this:
+
+```python
+from assistant_gateway.config import get_assistant_settings
+
+settings = get_assistant_settings()
+api_key = settings.require_api_key()
+model = settings.assistant_model
+base_url = settings.assistant_base_url
+```
+
+`assistant_api_key` is stored as Pydantic `SecretStr`, so settings logs and
+representations mask it. `require_api_key()` reveals it only at the provider
+call boundary. The default deterministic provider does not require a key.
+
 The assistant request path is:
 
 ```text

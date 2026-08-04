@@ -1,4 +1,6 @@
+import os
 import unittest
+from unittest.mock import patch
 
 from assistant_gateway.app import (
     AssistantRequest,
@@ -6,6 +8,7 @@ from assistant_gateway.app import (
     compose_answer,
     stream_answer,
 )
+from assistant_gateway.config import AssistantSettings
 
 
 SAMPLE_CONTEXT = {
@@ -73,6 +76,33 @@ class AssistantGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(stream.startswith('event: meta'))
         self.assertIn('event: delta', stream)
         self.assertTrue(stream.endswith('event: done\ndata: {"request_id": "request-123"}\n\n'))
+
+
+class AssistantSettingsTests(unittest.TestCase):
+    def test_settings_read_backend_only_api_configuration(self):
+        environment = {
+            'ASSISTANT_PROVIDER': 'example-provider',
+            'ASSISTANT_API_KEY': 'test-secret',
+            'ASSISTANT_BASE_URL': 'https://api.example.test/v1',
+            'ASSISTANT_MODEL': 'example-model',
+            'DJANGO_BASE_URL': 'http://django.test:9000',
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            settings = AssistantSettings(_env_file=None)
+
+        self.assertEqual(settings.assistant_provider, 'example-provider')
+        self.assertEqual(settings.assistant_base_url, 'https://api.example.test/v1')
+        self.assertEqual(settings.assistant_model, 'example-model')
+        self.assertEqual(settings.django_base_url, 'http://django.test:9000')
+        self.assertEqual(settings.require_api_key(), 'test-secret')
+        self.assertNotIn('test-secret', repr(settings))
+
+    def test_missing_api_key_fails_only_when_provider_requests_it(self):
+        with patch.dict(os.environ, {}, clear=True):
+            settings = AssistantSettings(_env_file=None)
+
+        with self.assertRaisesRegex(RuntimeError, 'ASSISTANT_API_KEY'):
+            settings.require_api_key()
 
 
 if __name__ == '__main__':
