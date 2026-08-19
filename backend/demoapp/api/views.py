@@ -4,20 +4,22 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.core.cache import cache
+from rest_framework.parsers import MultiPartParser
 
-from demoapp.definitions.fdc_http import ERROR_CODE, HTTP_STATUS_CODE
-from demoapp.fdc_frame.fdc_view import FdcView
-from demoapp.fdc_frame.response import FdcJsonResponse
-from demoapp.api.schemas import (
-    ECHO_SCHEMA,
-    LOGIN_SCHEMA,
-    MODEL_COMPARISON_SCHEMA,
-    SEARCH_SCHEMA,
-    SECURITY_INSPECTION_SCHEMA,
-    SYSTEM_OPERATION_STATUS_SCHEMA,
-    UPLOAD_SCHEMA,
-    VM_ASSOCIATION_CONTEXT_SCHEMA,
+from demoapp.api.base import ContractAPIView
+from demoapp.api.serializers import (
+    EchoSerializer,
+    EmptySerializer,
+    LoginSerializer,
+    ModelComparisonQuerySerializer,
+    SearchQuerySerializer,
+    SecurityInspectionSerializer,
+    SystemOperationStatusQuerySerializer,
+    UploadSerializer,
+    VmAssociationContextQuerySerializer,
 )
+from demoapp.definitions.fdc_http import ERROR_CODE, HTTP_STATUS_CODE
+from demoapp.fdc_frame.response import FdcJsonResponse
 from demoapp.models import DeviceRecord
 from demoapp.sqlalchemy_models import search_audit_records
 
@@ -75,12 +77,11 @@ def build_operation_cache_key(operation: str) -> str:
     return f'{SYSTEM_OPERATION_CACHE_PREFIX}{operation}'
 
 
-class EchoView(FdcView):
-    param_schemas = ECHO_SCHEMA
-    schema_name = 'ECHO_SCHEMA'
+class EchoView(ContractAPIView):
+    serializer_classes = {'post': EchoSerializer}
 
     def post(self, request):
-        payload = request.fdc['raw_post']
+        payload = request.validated_data
         result = {
             'sanitized_name': payload['name'].strip(),
             'submitted': payload,
@@ -89,12 +90,11 @@ class EchoView(FdcView):
         return FdcJsonResponse(True, message='JSON body validated successfully.', result=result)
 
 
-class SearchView(FdcView):
-    param_schemas = SEARCH_SCHEMA
-    schema_name = 'SEARCH_SCHEMA'
+class SearchView(ContractAPIView):
+    serializer_classes = {'get': SearchQuerySerializer}
 
     def get(self, request):
-        query = request.fdc['query_string']
+        query = request.validated_data
         term = query['term'].strip().lower()
         limit = query.get('limit', 5)
         active = query.get('active')
@@ -112,12 +112,12 @@ class SearchView(FdcView):
         )
 
 
-class UploadView(FdcView):
-    param_schemas = UPLOAD_SCHEMA
-    schema_name = 'UPLOAD_SCHEMA'
+class UploadView(ContractAPIView):
+    serializer_classes = {'post': UploadSerializer}
+    parser_classes = [MultiPartParser]
 
     def post(self, request):
-        uploaded = request.fdc['files']['attachment']
+        uploaded = request.validated_data['attachment']
         result = {
             'filename': uploaded.name,
             'content_type': uploaded.content_type,
@@ -126,7 +126,15 @@ class UploadView(FdcView):
         return FdcJsonResponse(True, message='File metadata validated successfully.', result=result)
 
 
-class TemporaryRedirectView(FdcView):
+class TemporaryRedirectView(ContractAPIView):
+    serializer_classes = {'post': EmptySerializer}
+    response_statuses = {
+        'post': {
+            303: 'Temporary redirect expressed in the legacy response envelope.',
+            444: 'Serializer validation failed before the handler ran.',
+        }
+    }
+
     def post(self, request):
         redirect = '/new/demo/form?banner=temp-redirect'
         return FdcJsonResponse(
@@ -138,7 +146,15 @@ class TemporaryRedirectView(FdcView):
         )
 
 
-class ErrorRedirectView(FdcView):
+class ErrorRedirectView(ContractAPIView):
+    serializer_classes = {'post': EmptySerializer}
+    response_statuses = {
+        'post': {
+            338: 'Application error redirect expressed in the legacy response envelope.',
+            444: 'Serializer validation failed before the handler ran.',
+        }
+    }
+
     def post(self, request):
         redirect = '/new/error?reason=redirected-from-api'
         return FdcJsonResponse(
@@ -150,7 +166,15 @@ class ErrorRedirectView(FdcView):
         )
 
 
-class RebootRedirectView(FdcView):
+class RebootRedirectView(ContractAPIView):
+    serializer_classes = {'post': EmptySerializer}
+    response_statuses = {
+        'post': {
+            303: 'Transition-page redirect expressed in the legacy response envelope.',
+            444: 'Serializer validation failed before the handler ran.',
+        }
+    }
+
     def post(self, request):
         operation = 'demo-reboot'
         cache.set(
@@ -168,12 +192,18 @@ class RebootRedirectView(FdcView):
         )
 
 
-class SystemOperationStatusView(FdcView):
-    param_schemas = SYSTEM_OPERATION_STATUS_SCHEMA
-    schema_name = 'SYSTEM_OPERATION_STATUS_SCHEMA'
+class SystemOperationStatusView(ContractAPIView):
+    serializer_classes = {'get': SystemOperationStatusQuerySerializer}
+    response_statuses = {
+        'get': {
+            200: 'The simulated operation is ready.',
+            444: 'Serializer validation failed before the handler ran.',
+            503: 'The simulated operation is still in progress.',
+        }
+    }
 
     def get(self, request):
-        operation = request.fdc['query_string']['operation']
+        operation = request.validated_data['operation']
         cache_key = build_operation_cache_key(operation)
         state = cache.get(cache_key)
 
@@ -266,12 +296,18 @@ def build_vm_association_context(record):
     }
 
 
-class LoginView(FdcView):
-    param_schemas = LOGIN_SCHEMA
-    schema_name = 'LOGIN_SCHEMA'
+class LoginView(ContractAPIView):
+    serializer_classes = {'post': LoginSerializer}
+    response_statuses = {
+        'post': {
+            200: 'The Django session was created.',
+            401: 'The credentials were rejected.',
+            444: 'Serializer validation failed before authentication ran.',
+        }
+    }
 
     def post(self, request):
-        credentials = request.fdc['raw_post']
+        credentials = request.validated_data
         user = authenticate(
             request,
             username=credentials['username'],
@@ -305,7 +341,9 @@ class LoginView(FdcView):
         )
 
 
-class LogoutView(FdcView):
+class LogoutView(ContractAPIView):
+    serializer_classes = {'post': EmptySerializer}
+
     def post(self, request):
         username = request.user.username if request.user.is_authenticated else None
         django_logout(request)
@@ -321,7 +359,9 @@ class LogoutView(FdcView):
         )
 
 
-class SessionView(FdcView):
+class SessionView(ContractAPIView):
+    serializer_classes = {'get': EmptySerializer}
+
     def get(self, request):
         return FdcJsonResponse(
             True,
@@ -334,22 +374,24 @@ class SessionView(FdcView):
         )
 
 
-class ContractCatalogView(FdcView):
+class ContractCatalogView(ContractAPIView):
+    serializer_classes = {'get': EmptySerializer}
+
     def get(self, request):
         return FdcJsonResponse(
             True,
-            message='Each class owns a method-scoped schema.',
+            message='Each APIView owns a method-scoped DRF Serializer.',
             result={
                 'contracts': [
                     {
                         'view_class': 'LoginView',
-                        'schema_name': 'LOGIN_SCHEMA',
+                        'serializer_class': 'LoginSerializer',
                         'method': 'POST',
                         'fields': ['username: strict identifier', 'password: bounded string'],
                     },
                     {
                         'view_class': 'SecurityInspectionView',
-                        'schema_name': 'SECURITY_INSPECTION_SCHEMA',
+                        'serializer_class': 'SecurityInspectionSerializer',
                         'method': 'POST',
                         'fields': [
                             'display_name: trim + HTML escape',
@@ -359,7 +401,7 @@ class ContractCatalogView(FdcView):
                     },
                     {
                         'view_class': 'ModelComparisonView',
-                        'schema_name': 'MODEL_COMPARISON_SCHEMA',
+                        'serializer_class': 'ModelComparisonQuerySerializer',
                         'method': 'GET',
                         'fields': ['term: typed query string'],
                     },
@@ -381,12 +423,11 @@ class ContractCatalogView(FdcView):
         )
 
 
-class VmAssociationContextView(FdcView):
-    param_schemas = VM_ASSOCIATION_CONTEXT_SCHEMA
-    schema_name = 'VM_ASSOCIATION_CONTEXT_SCHEMA'
+class VmAssociationContextView(ContractAPIView):
+    serializer_classes = {'get': VmAssociationContextQuerySerializer}
 
     def get(self, request):
-        record_id = request.fdc['query_string']['record_id']
+        record_id = request.validated_data['record_id']
         record = DeviceRecord.objects.filter(id=record_id).first()
         if record is None:
             return FdcJsonResponse(
@@ -412,13 +453,12 @@ class VmAssociationContextView(FdcView):
         )
 
 
-class SecurityInspectionView(FdcView):
-    param_schemas = SECURITY_INSPECTION_SCHEMA
-    schema_name = 'SECURITY_INSPECTION_SCHEMA'
+class SecurityInspectionView(ContractAPIView):
+    serializer_classes = {'post': SecurityInspectionSerializer}
 
     def post(self, request):
-        payload = request.fdc['raw_post']
-        self._trace(request, 'handler', 'Handler received only the validated request.fdc payload')
+        payload = request.validated_data
+        self._trace(request, 'handler', 'Handler received only DRF serializer.validated_data')
         return FdcJsonResponse(
             True,
             message='Input normalization and injection defenses completed.',
@@ -435,12 +475,11 @@ class SecurityInspectionView(FdcView):
         )
 
 
-class ModelComparisonView(FdcView):
-    param_schemas = MODEL_COMPARISON_SCHEMA
-    schema_name = 'MODEL_COMPARISON_SCHEMA'
+class ModelComparisonView(ContractAPIView):
+    serializer_classes = {'get': ModelComparisonQuerySerializer}
 
     def get(self, request):
-        term = request.fdc['query_string']['term']
+        term = request.validated_data['term']
         self._trace(request, 'handler', 'Both ORM adapters received the validated term')
         return FdcJsonResponse(
             True,

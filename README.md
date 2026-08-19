@@ -9,7 +9,7 @@ This standalone demo shows:
 - Django templates and Angular SPA routes living in one Django project
 - `/legacy/...` routes rendered by Django
 - `/new/...` routes served as an Angular shell
-- a simplified `FdcView + param_schemas` validation layer
+- DRF `APIView` with method-scoped serializers and pre-handler validation
 - a standardized `{status, result, error}` API contract
 - Angular interceptor handling `303` and `338` redirect semantics
 - a visible Django session authentication middleware flow
@@ -42,7 +42,7 @@ On the API contract playground:
 - `note` demonstrates an optional JSON property.
 - search `term`, `limit`, and `active` demonstrate required and optional query
   parameters.
-- the file input demonstrates the `files` schema mode and validates extension,
+- the file input demonstrates a DRF `FileField` and validates extension,
   content type, and maximum size without saving the file.
 - the redirect buttons have no business input; they demonstrate frontend
   handling of structured `303` and `338` API responses.
@@ -113,7 +113,7 @@ The assistant request path is:
 Angular transient page state + question
   -> FastAPI /assistant/stream
   -> Django /api/demo/secure/page-context?record_id=...
-  -> FdcView validation + Django ORM
+  -> DRF serializer validation + Django ORM
   -> FastAPI assistant provider
   -> SSE meta / delta / done events
   -> Angular ReadableStream parser
@@ -154,6 +154,21 @@ Then open:
 The public-safe design decisions and interview framing are documented in
 [`docs/MIGRATION_NOTES.md`](docs/MIGRATION_NOTES.md).
 
+## Export the API schema
+
+DRF can export the serializer-backed OpenAPI contract with its management
+command:
+
+```bash
+cd backend
+../.venv/bin/python manage.py generateschema \
+  --title "Coexist Demo API" \
+  --file ../docs/openapi.yaml
+```
+
+The older FDC project used a custom `manage.py exporturls` command that walked
+`param_schemas`. This demo now uses DRF's standard `generateschema` path.
+
 ## Security & ORM Lab
 
 Demo credentials:
@@ -168,9 +183,10 @@ The architecture lab demonstrates this request path:
 ```text
 Django session middleware
   -> demo authentication middleware
-  -> FdcView.dispatch
-  -> per-class param_schemas
-  -> validated request.fdc
+  -> DRF APIView.dispatch
+  -> ContractAPIView.initial
+  -> method-scoped DRF Serializer
+  -> request.validated_data
   -> Django ORM / SQLAlchemy
   -> FdcJsonResponse
 ```
@@ -179,11 +195,11 @@ Recommended walkthrough:
 
 1. Log out and call the protected model endpoint. The request stops in
    middleware before dispatch.
-2. Log in and call it again. The response trace reaches `FdcView.dispatch` and
-   `MODEL_COMPARISON_SCHEMA`.
+2. Log in and call it again. The response trace reaches DRF `APIView.dispatch`
+   and `ModelComparisonQuerySerializer`.
 3. Run the default security payload. HTML is escaped, surrounding whitespace is
    removed, and the SQL-shaped lookup term remains data.
-4. Trigger the semicolon example. `SECURITY_INSPECTION_SCHEMA` rejects the
+4. Trigger the semicolon example. `SecurityInspectionSerializer` rejects the
    identifier with HTTP `444`.
 5. Compare model queries. Both ORM results expose a SQL template and separate
    bound parameters.

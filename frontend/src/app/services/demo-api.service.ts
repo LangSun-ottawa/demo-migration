@@ -46,9 +46,10 @@ export interface TraceStep {
 
 export interface ContractMetadata {
   view_class: string;
-  schema_name: string;
+  serializer_class: string;
   http_method: string;
-  schema_modes: string[];
+  input_source: 'query' | 'body';
+  fields: string[];
 }
 
 export interface SessionResult {
@@ -95,7 +96,7 @@ export interface SecurityInspectionResult {
 export interface ContractCatalogResult {
   contracts: Array<{
     view_class: string;
-    schema_name: string;
+    serializer_class: string;
     method: string;
     fields: string[];
   }>;

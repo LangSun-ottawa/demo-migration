@@ -1,0 +1,369 @@
+openapi: 3.0.2
+info:
+  title: Coexist Demo API
+  version: ''
+paths:
+  /api/demo/auth/session:
+    get:
+      operationId: getSession
+      description: ''
+      parameters: []
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/contracts:
+    get:
+      operationId: getContractCatalog
+      description: ''
+      parameters: []
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/secure/models:
+    get:
+      operationId: getModelComparison
+      description: ''
+      parameters:
+      - name: term
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/secure/page-context:
+    get:
+      operationId: getVmAssociationContext
+      description: ''
+      parameters:
+      - name: record_id
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/search:
+    get:
+      operationId: getSearch
+      description: ''
+      parameters:
+      - name: term
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 10
+          minimum: 1
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/system/status:
+    get:
+      operationId: getSystemOperationStatus
+      description: ''
+      parameters:
+      - name: operation
+        in: query
+        required: true
+        schema:
+          enum:
+          - demo-reboot
+          type: string
+      responses:
+        '200':
+          description: The simulated operation is ready.
+        '444':
+          description: Serializer validation failed before the handler ran.
+        '503':
+          description: The simulated operation is still in progress.
+      tags:
+      - api
+  /api/demo/auth/login:
+    post:
+      operationId: postLogin
+      description: ''
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+      responses:
+        '200':
+          description: The Django session was created.
+        '401':
+          description: The credentials were rejected.
+        '444':
+          description: Serializer validation failed before authentication ran.
+      tags:
+      - api
+  /api/demo/auth/logout:
+    post:
+      operationId: postLogout
+      description: ''
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Empty'
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/secure/security/inspect:
+    post:
+      operationId: postSecurityInspection
+      description: ''
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityInspection'
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/echo:
+    post:
+      operationId: postEcho
+      description: ''
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Echo'
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/upload:
+    post:
+      operationId: postUpload
+      description: ''
+      parameters: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Upload'
+      responses:
+        '200':
+          description: Legacy-compatible {status, result, error} envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/redirect/temp:
+    post:
+      operationId: postTemporaryRedirect
+      description: ''
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Empty'
+      responses:
+        '303':
+          description: Temporary redirect expressed in the legacy response envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/redirect/error:
+    post:
+      operationId: postErrorRedirect
+      description: ''
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Empty'
+      responses:
+        '338':
+          description: Application error redirect expressed in the legacy response
+            envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+  /api/demo/system/reboot:
+    post:
+      operationId: postRebootRedirect
+      description: ''
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Empty'
+      responses:
+        '303':
+          description: Transition-page redirect expressed in the legacy response envelope.
+        '444':
+          description: Serializer validation failed before the handler ran.
+      tags:
+      - api
+components:
+  schemas:
+    Empty:
+      type: object
+      properties: {}
+    ModelComparisonQuery:
+      type: object
+      properties:
+        term:
+          type: string
+          maxLength: 80
+      required:
+      - term
+    VmAssociationContextQuery:
+      type: object
+      properties:
+        record_id:
+          type: integer
+          minimum: 1
+      required:
+      - record_id
+    SearchQuery:
+      type: object
+      properties:
+        term:
+          type: string
+          maxLength: 40
+        limit:
+          type: integer
+          maximum: 10
+          minimum: 1
+        active:
+          type: boolean
+      required:
+      - term
+    SystemOperationStatusQuery:
+      type: object
+      properties:
+        operation:
+          enum:
+          - demo-reboot
+          type: string
+      required:
+      - operation
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 30
+          pattern: \A[A-Za-z0-9_.-]+\z
+        password:
+          type: string
+          writeOnly: true
+          maxLength: 128
+      required:
+      - username
+      - password
+    SecurityInspection:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 120
+        lookup_term:
+          type: string
+          maxLength: 80
+        safe_identifier:
+          type: string
+          maxLength: 40
+          pattern: \A[A-Za-z0-9_-]+\z
+      required:
+      - display_name
+      - lookup_term
+      - safe_identifier
+    Echo:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 60
+        age:
+          type: integer
+          maximum: 99
+          minimum: 18
+        active:
+          type: boolean
+        note:
+          type: string
+          maxLength: 200
+        metadata:
+          type: object
+          properties:
+            source:
+              type: string
+              maxLength: 30
+          required:
+          - source
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+      - name
+      - age
+      - active
+      - metadata
+      - tags
+    Upload:
+      type: object
+      properties:
+        attachment:
+          type: string
+          format: binary
+      required:
+      - attachment

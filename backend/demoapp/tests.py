@@ -114,19 +114,20 @@ class ArchitectureLabTests(TestCase):
         self.assertEqual(data['result']['trace'][-1]['stage'], 'authentication')
         self.assertIn('before view dispatch', data['result']['trace'][-1]['detail'])
 
-    def test_login_uses_its_own_schema_and_persists_session(self):
+    def test_login_uses_its_own_serializer_and_persists_session(self):
         response = self.login()
 
         self.assertEqual(response.status_code, HTTP_STATUS_CODE.SUCCESS.value)
         result = response.json()['result']
         self.assertTrue(result['authenticated'])
         self.assertEqual(result['contract']['view_class'], 'LoginView')
-        self.assertEqual(result['contract']['schema_name'], 'LOGIN_SCHEMA')
+        self.assertEqual(result['contract']['serializer_class'], 'LoginSerializer')
+        self.assertEqual(result['contract']['input_source'], 'body')
 
         session_response = self.client.get('/api/demo/auth/session')
         self.assertTrue(session_response.json()['result']['authenticated'])
 
-    def test_login_schema_rejects_injection_shaped_username(self):
+    def test_login_serializer_rejects_injection_shaped_username(self):
         response = self.client.post(
             '/api/demo/auth/login',
             data={'username': "demo' OR 1=1 --", 'password': 'DemoPass123!'},
@@ -135,8 +136,24 @@ class ArchitectureLabTests(TestCase):
 
         self.assertEqual(response.status_code, HTTP_STATUS_CODE.VALIDATION_ERROR.value)
         result = response.json()['result']
-        self.assertEqual(result['contract']['schema_name'], 'LOGIN_SCHEMA')
+        self.assertEqual(result['contract']['serializer_class'], 'LoginSerializer')
         self.assertEqual(result['trace'][-1]['stage'], 'validation')
+
+    def test_serializer_rejects_unknown_fields_before_handler(self):
+        response = self.client.post(
+            '/api/demo/auth/login',
+            data={
+                'username': 'demo',
+                'password': 'DemoPass123!',
+                'unexpected': 'value',
+            },
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, HTTP_STATUS_CODE.VALIDATION_ERROR.value)
+        data = response.json()
+        self.assertIn('unexpected: Unexpected field.', data['error'][0]['message'])
+        self.assertNotIn('authentication', [step['stage'] for step in data['result']['trace'][1:]])
 
     def test_security_view_normalizes_escapes_and_binds_sql_input(self):
         self.login()
@@ -190,7 +207,11 @@ class ArchitectureLabTests(TestCase):
 
         self.assertEqual(response.status_code, HTTP_STATUS_CODE.SUCCESS.value)
         result = response.json()['result']
-        self.assertEqual(result['contract']['schema_name'], 'MODEL_COMPARISON_SCHEMA')
+        self.assertEqual(
+            result['contract']['serializer_class'],
+            'ModelComparisonQuerySerializer',
+        )
+        self.assertEqual(result['contract']['input_source'], 'query')
         self.assertEqual(result['django_orm']['model'], 'DeviceRecord(models.Model)')
         self.assertEqual(result['sqlalchemy']['model'], 'AuditRecord(SqlAlchemyBase)')
         self.assertEqual(len(result['django_orm']['items']), 1)
@@ -202,7 +223,10 @@ class ArchitectureLabTests(TestCase):
 
         self.assertEqual(response.status_code, HTTP_STATUS_CODE.SUCCESS.value)
         result = response.json()['result']
-        self.assertEqual(result['contract']['schema_name'], 'VM_ASSOCIATION_CONTEXT_SCHEMA')
+        self.assertEqual(
+            result['contract']['serializer_class'],
+            'VmAssociationContextQuerySerializer',
+        )
         self.assertEqual(result['page']['id'], 'vm-association')
         self.assertEqual(result['selection']['record_id'], 1)
         self.assertGreaterEqual(len(result['records']), 3)

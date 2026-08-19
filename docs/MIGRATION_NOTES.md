@@ -7,7 +7,8 @@ application:
 
 - Keep server-rendered Django routes available.
 - Serve a separately built Angular application from Django static assets.
-- Preserve centralized request validation and response envelopes.
+- Standardize request validation with DRF serializers while preserving the
+  existing response envelope.
 - Add a FastAPI orchestration boundary for a contextual streaming assistant.
 
 ## Routing Ownership
@@ -26,10 +27,12 @@ the underlying server-rendered page is rewritten.
 
 ## Request Contract
 
-Each Django class-based API view declares `param_schemas`. `FdcView.dispatch`
-validates query strings, JSON bodies, and uploaded files before the handler is
-called. Validated and typed values are stored on `request.fdc`; invalid input
-returns the standard `{status, result, error}` envelope.
+Each Django class-based API view declares method-scoped DRF serializer classes.
+`ContractAPIView` deliberately inherits DRF's `APIView.dispatch`; it performs
+input validation in `initial()`, after DRF constructs `Request` and before the
+HTTP method handler is called. Validated values are stored on
+`request.validated_data`; invalid input is adapted to the existing
+`{status, result, error}` envelope.
 
 This keeps validation outside feature handlers and makes each view's accepted
 input explicit. The demo includes string, integer, boolean, nested object,
@@ -54,7 +57,7 @@ Both examples treat user input as bound data rather than executable SQL.
 Angular question + narrow transient page state
   -> FastAPI /assistant/stream
   -> authenticated Django page-context API
-  -> FdcView schema validation + Django ORM
+  -> DRF serializer validation + Django ORM
   -> replaceable AssistantProvider
   -> SSE meta / delta / done events
   -> Angular ReadableStream parser
@@ -88,3 +91,6 @@ they are required.
 - Streaming is a transport decision independent of the model provider.
 - An agent SDK should be introduced when agent behavior is required, not only
   because the UI contains a chat box.
+- The migration keeps the legacy response contract, but uses DRF serializers
+  rather than extending a private schema DSL. DRF's `generateschema` command
+  can export the resulting OpenAPI contract.

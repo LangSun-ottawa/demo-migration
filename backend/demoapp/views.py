@@ -2,6 +2,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.shortcuts import render
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from demoapp.api.views import MOCK_RECORDS
@@ -47,5 +48,6 @@ def legacy_report_view(request):
     return render(request, 'demoapp/legacy_report.html', {'records': MOCK_RECORDS})
 
 
+@ensure_csrf_cookie
 def spa_shell_view(request):
     return render(request, 'demoapp/spa_shell.html', _discover_frontend_assets())

@@ -1,1 +1,1 @@
-"""Reusable request validation and response helpers inspired by the legacy stack."""
+"""Legacy-compatible response envelope retained during the DRF migration."""

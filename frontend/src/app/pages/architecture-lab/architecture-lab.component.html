@@ -3,7 +3,7 @@
     <p class="eyebrow">Request Architecture Lab</p>
     <h1>Follow one request through every boundary.</h1>
     <p class="lede">
-      This page makes middleware, class-owned schemas, cleaned payloads, and ORM parameter
+      This page makes middleware, class-owned serializers, validated payloads, and ORM parameter
       binding visible. Use the attack-shaped defaults: safe code should treat them as data.
     </p>
   </div>
@@ -21,9 +21,9 @@
   <i>01</i>
   <span>Auth gate</span>
   <i>02</i>
-  <span>FdcView.dispatch</span>
+  <span>APIView.dispatch</span>
   <i>03</i>
-  <span>Class schema</span>
+  <span>Serializer validation</span>
   <i>04</i>
   <span>ORM adapter</span>
 </section>
@@ -125,7 +125,7 @@
   <article class="panel schema-panel">
     <header>
       <p class="step-number">04 / CLASS CONTRACTS</p>
-      <h2>Schema belongs to the View</h2>
+      <h2>Serializer belongs to the View</h2>
     </header>
 
     @if (catalog; as data) {
@@ -136,7 +136,7 @@
               <strong>{{ contract.view_class }}</strong>
               <span>{{ contract.method }}</span>
             </div>
-            <code>{{ contract.schema_name }}</code>
+            <code>{{ contract.serializer_class }}</code>
             <ul>
               @for (field of contract.fields; track field) {
                 <li>{{ field }}</li>

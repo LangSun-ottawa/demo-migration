@@ -34,7 +34,7 @@ export class AppComponent {
         },
         {
           label: 'Security & ORM Lab',
-          description: 'Session auth, dispatch schemas, injection defenses, and two ORMs',
+          description: 'Session auth, DRF serializers, injection defenses, and two ORMs',
           path: '/architecture',
         },
         {
