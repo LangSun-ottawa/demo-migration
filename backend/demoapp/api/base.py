@@ -1,7 +1,12 @@
 from collections.abc import Mapping
 
 from rest_framework import serializers
-from rest_framework.exceptions import ParseError, ValidationError
+from rest_framework.exceptions import (
+    NotAuthenticated,
+    ParseError,
+    PermissionDenied,
+    ValidationError,
+)
 from rest_framework.parsers import JSONParser
 from rest_framework.schemas.openapi import AutoSchema
 from rest_framework.views import APIView
@@ -112,13 +117,18 @@ class ContractAPIView(APIView):
 
     def get_response_descriptions(self, method=None):
         method = method or self.request.method.lower()
-        return self.response_statuses.get(
+        responses = self.response_statuses.get(
             method,
             {
                 200: 'Legacy-compatible {status, result, error} envelope.',
                 444: 'Serializer validation failed before the handler ran.',
             },
         )
+        responses = dict(responses)
+        if getattr(self, 'feature_key', None):
+            responses.setdefault(401, 'Authentication is required.')
+            responses.setdefault(403, 'The user lacks the required feature privilege.')
+        return responses
 
     def get_serializer(self, *args, method=None, **kwargs):
         serializer_class = self.get_input_serializer_class(method)
@@ -158,6 +168,29 @@ class ContractAPIView(APIView):
         )
 
     def handle_exception(self, exc):
+        if isinstance(exc, (NotAuthenticated, PermissionDenied)):
+            is_unauthenticated = isinstance(exc, NotAuthenticated)
+            self._trace(
+                self.request,
+                'authentication' if is_unauthenticated else 'permission',
+                'Request rejected before serializer validation.',
+            )
+            return FdcJsonResponse(
+                False,
+                message='Authentication required.' if is_unauthenticated else 'Permission denied.',
+                errors=[
+                    {
+                        'message': str(getattr(exc, 'detail', exc)),
+                        'code': ERROR_CODE.PERMISSION.value,
+                    }
+                ],
+                result=self.request_context(self.request),
+                http_code=(
+                    HTTP_STATUS_CODE.UNAUTHORIZED.value
+                    if is_unauthenticated
+                    else HTTP_STATUS_CODE.FORBIDDEN.value
+                ),
+            )
         if isinstance(exc, (ValidationError, ParseError)):
             self._trace(
                 self.request,
@@ -180,13 +213,22 @@ class ContractAPIView(APIView):
     def contract_metadata(self, request):
         serializer_class = self.get_input_serializer_class(request.method.lower())
         serializer = serializer_class()
-        return {
+        metadata = {
             'view_class': type(self).__name__,
             'serializer_class': serializer_class.__name__,
             'http_method': request.method,
             'input_source': self.get_input_source(request.method.lower()),
             'fields': list(serializer.fields.keys()),
         }
+        feature_key = getattr(self, 'feature_key', None)
+        if feature_key:
+            required = getattr(self, 'method_permissions', {}).get(request.method.lower())
+            metadata['permission'] = {
+                'feature_key': feature_key,
+                'required': getattr(required, 'value', required),
+                'actual': getattr(request, 'feature_permission', {}).get('actual'),
+            }
+        return metadata
 
     def request_context(self, request):
         return {

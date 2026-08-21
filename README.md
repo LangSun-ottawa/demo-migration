@@ -12,7 +12,7 @@ This standalone demo shows:
 - DRF `APIView` with method-scoped serializers and pre-handler validation
 - a standardized `{status, result, error}` API contract
 - Angular interceptor handling `303` and `338` redirect semantics
-- a visible Django session authentication middleware flow
+- DRF-native feature authorization with explicit read-only/read-write grants
 - input rejection, normalization, HTML escaping, and SQL parameter binding
 - side-by-side Django ORM and SQLAlchemy declarative models
 - a contextual assistant that combines Angular page state with canonical Django data
@@ -182,9 +182,9 @@ The architecture lab demonstrates this request path:
 
 ```text
 Django session middleware
-  -> demo authentication middleware
   -> DRF APIView.dispatch
   -> ContractAPIView.initial
+  -> DRF authentication + FeaturePermission
   -> method-scoped DRF Serializer
   -> request.validated_data
   -> Django ORM / SQLAlchemy
@@ -193,10 +193,12 @@ Django session middleware
 
 Recommended walkthrough:
 
-1. Log out and call the protected model endpoint. The request stops in
-   middleware before dispatch.
+1. Log out and call the protected model endpoint. `APIView.dispatch` starts,
+   but `FeaturePermission` returns `401` before serializer validation or the
+   handler.
 2. Log in and call it again. The response trace reaches DRF `APIView.dispatch`
-   and `ModelComparisonQuerySerializer`.
+   and shows the `model_comparison` read-only grant before
+   `ModelComparisonQuerySerializer`.
 3. Run the default security payload. HTML is escaped, surrounding whitespace is
    removed, and the SQL-shaped lookup term remains data.
 4. Trigger the semicolon example. `SecurityInspectionSerializer` rejects the

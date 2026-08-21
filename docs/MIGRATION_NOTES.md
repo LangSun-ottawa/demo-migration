@@ -38,10 +38,15 @@ This keeps validation outside feature handlers and makes each view's accepted
 input explicit. The demo includes string, integer, boolean, nested object,
 list, query-string, and file examples.
 
-## Authentication And Data Access
+## Authentication, Feature Authorization, And Data Access
 
-Django session middleware remains the authentication authority. Protected API
-requests stop before view dispatch when the session is missing.
+Django session middleware resolves the logged-in user. Protected API views use
+the custom DRF `FeaturePermission`: each view declares a `feature_key`, while
+`method_permissions` declares whether each HTTP method needs `readonly` or
+`readwrite`. Grants are represented by Django groups such as
+`feature:model_comparison:readonly`. Anonymous requests receive `401`; logged-in
+users without a sufficient feature grant receive `403`. DRF runs this check in
+`APIView.initial()`, before serializer validation and the handler.
 
 The ORM comparison intentionally shows two data-access styles:
 

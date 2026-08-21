@@ -3,8 +3,9 @@
     <p class="eyebrow">Request Architecture Lab</p>
     <h1>Follow one request through every boundary.</h1>
     <p class="lede">
-      This page makes middleware, class-owned serializers, validated payloads, and ORM parameter
-      binding visible. Use the attack-shaped defaults: safe code should treat them as data.
+      This page makes session authentication, feature permission, class-owned serializers,
+      validated payloads, and ORM parameter binding visible. Use the attack-shaped defaults:
+      safe code should treat them as data.
     </p>
   </div>
   <div class="session-chip" [class.authenticated]="session?.authenticated">
@@ -19,9 +20,9 @@
 <section class="flow-strip" aria-label="Request flow">
   <span>Session middleware</span>
   <i>01</i>
-  <span>Auth gate</span>
-  <i>02</i>
   <span>APIView.dispatch</span>
+  <i>02</i>
+  <span>Feature permission</span>
   <i>03</i>
   <span>Serializer validation</span>
   <i>04</i>
@@ -137,6 +138,9 @@
               <span>{{ contract.method }}</span>
             </div>
             <code>{{ contract.serializer_class }}</code>
+            @if (contract.feature_key) {
+              <code>{{ contract.feature_key }} · {{ contract.required_privilege }}</code>
+            }
             <ul>
               @for (field of contract.fields; track field) {
                 <li>{{ field }}</li>
@@ -169,7 +173,7 @@
         }
       </ol>
     } @else {
-      <p class="empty-state">The middleware and dispatch stages will appear here.</p>
+      <p class="empty-state">The dispatch, permission, and validation stages will appear here.</p>
     }
   </div>
 

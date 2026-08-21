@@ -1,7 +1,15 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.test import Client, TestCase
 
+from demoapp.api.permissions import (
+    FEATURE_MODEL_COMPARISON,
+    FEATURE_SECURITY_INSPECTION,
+    FeaturePrivilege,
+    feature_group_name,
+)
 from demoapp.definitions.fdc_http import ERROR_CODE, HTTP_STATUS_CODE, RETURN_CODE
 from demoapp.api.views import build_operation_cache_key
 
@@ -106,13 +114,57 @@ class ArchitectureLabTests(TestCase):
             content_type='application/json',
         )
 
-    def test_secure_endpoint_stops_before_dispatch_for_anonymous_user(self):
+    def test_feature_permission_rejects_anonymous_user_before_validation(self):
         response = self.client.get('/api/demo/secure/models', {'term': 'Alpha'})
 
         self.assertEqual(response.status_code, HTTP_STATUS_CODE.UNAUTHORIZED.value)
         data = response.json()
         self.assertEqual(data['result']['trace'][-1]['stage'], 'authentication')
-        self.assertIn('before view dispatch', data['result']['trace'][-1]['detail'])
+        self.assertEqual(data['error'][0]['code'], ERROR_CODE.PERMISSION.value)
+        self.assertNotIn('validation', [step['stage'] for step in data['result']['trace']])
+
+    def test_feature_permission_denies_authenticated_user_without_grant(self):
+        user = get_user_model().objects.create_user('no-grants', password='DemoPass123!')
+        self.client.force_login(user)
+
+        response = self.client.get('/api/demo/secure/models', {'term': 'Alpha'})
+
+        self.assertEqual(response.status_code, HTTP_STATUS_CODE.FORBIDDEN.value)
+        data = response.json()
+        self.assertEqual(data['error'][0]['code'], ERROR_CODE.PERMISSION.value)
+        permission = data['result']['contract']['permission']
+        self.assertEqual(permission['feature_key'], FEATURE_MODEL_COMPARISON)
+        self.assertEqual(permission['actual'], FeaturePrivilege.NONE.value)
+
+    def test_readonly_feature_grant_allows_get_but_not_write(self):
+        user = get_user_model().objects.create_user('readonly-user', password='DemoPass123!')
+        model_group_name = feature_group_name(
+            FEATURE_MODEL_COMPARISON,
+            FeaturePrivilege.READONLY,
+        )
+        security_group_name = feature_group_name(
+            FEATURE_SECURITY_INSPECTION,
+            FeaturePrivilege.READONLY,
+        )
+        model_group, _ = Group.objects.get_or_create(name=model_group_name)
+        security_group, _ = Group.objects.get_or_create(name=security_group_name)
+        user.groups.add(model_group, security_group)
+        self.client.force_login(user)
+
+        read_response = self.client.get('/api/demo/secure/models', {'term': 'Alpha'})
+        write_response = self.client.post(
+            '/api/demo/secure/security/inspect',
+            data={
+                'display_name': 'Demo',
+                'lookup_term': 'Alpha',
+                'safe_identifier': 'report_2026',
+            },
+            content_type='application/json',
+        )
+
+        self.assertEqual(read_response.status_code, HTTP_STATUS_CODE.SUCCESS.value)
+        self.assertEqual(write_response.status_code, HTTP_STATUS_CODE.FORBIDDEN.value)
+        self.assertEqual(write_response.json()['error'][0]['code'], ERROR_CODE.PERMISSION.value)
 
     def test_login_uses_its_own_serializer_and_persists_session(self):
         response = self.login()
@@ -212,6 +264,14 @@ class ArchitectureLabTests(TestCase):
             'ModelComparisonQuerySerializer',
         )
         self.assertEqual(result['contract']['input_source'], 'query')
+        self.assertEqual(
+            result['contract']['permission'],
+            {
+                'feature_key': FEATURE_MODEL_COMPARISON,
+                'required': FeaturePrivilege.READONLY.value,
+                'actual': FeaturePrivilege.READONLY.value,
+            },
+        )
         self.assertEqual(result['django_orm']['model'], 'DeviceRecord(models.Model)')
         self.assertEqual(result['sqlalchemy']['model'], 'AuditRecord(SqlAlchemyBase)')
         self.assertEqual(len(result['django_orm']['items']), 1)

@@ -50,6 +50,11 @@ export interface ContractMetadata {
   http_method: string;
   input_source: 'query' | 'body';
   fields: string[];
+  permission?: {
+    feature_key: string;
+    required: 'readonly' | 'readwrite';
+    actual: 'none' | 'readonly' | 'readwrite' | null;
+  };
 }
 
 export interface SessionResult {
@@ -98,6 +103,8 @@ export interface ContractCatalogResult {
     view_class: string;
     serializer_class: string;
     method: string;
+    feature_key?: string;
+    required_privilege?: 'readonly' | 'readwrite';
     fields: string[];
   }>;
   models: Array<{

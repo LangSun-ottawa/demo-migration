@@ -8,6 +8,7 @@ class RETURN_CODE(Enum):
 
 class ERROR_CODE(Enum):
     VALIDATION = 'VE'
+    PERMISSION = 'PE'
     BUSINESS = 'BE'
     SYSTEM = 'SE'
 
@@ -15,6 +16,7 @@ class ERROR_CODE(Enum):
 class HTTP_STATUS_CODE(Enum):
     SUCCESS = 200
     UNAUTHORIZED = 401
+    FORBIDDEN = 403
     SEE_OTHER_REDIRECT = 303
     REDIRECT = 338
     BUSINESS_ERROR = 400

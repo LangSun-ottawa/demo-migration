@@ -7,6 +7,13 @@ from django.core.cache import cache
 from rest_framework.parsers import MultiPartParser
 
 from demoapp.api.base import ContractAPIView
+from demoapp.api.permissions import (
+    FEATURE_MODEL_COMPARISON,
+    FEATURE_SECURITY_INSPECTION,
+    FEATURE_VM_ASSOCIATION,
+    FeaturePermission,
+    FeaturePrivilege,
+)
 from demoapp.api.serializers import (
     EchoSerializer,
     EmptySerializer,
@@ -393,6 +400,8 @@ class ContractCatalogView(ContractAPIView):
                         'view_class': 'SecurityInspectionView',
                         'serializer_class': 'SecurityInspectionSerializer',
                         'method': 'POST',
+                        'feature_key': FEATURE_SECURITY_INSPECTION,
+                        'required_privilege': FeaturePrivilege.READWRITE.value,
                         'fields': [
                             'display_name: trim + HTML escape',
                             'lookup_term: trim + parameter binding',
@@ -403,6 +412,8 @@ class ContractCatalogView(ContractAPIView):
                         'view_class': 'ModelComparisonView',
                         'serializer_class': 'ModelComparisonQuerySerializer',
                         'method': 'GET',
+                        'feature_key': FEATURE_MODEL_COMPARISON,
+                        'required_privilege': FeaturePrivilege.READONLY.value,
                         'fields': ['term: typed query string'],
                     },
                 ],
@@ -425,6 +436,9 @@ class ContractCatalogView(ContractAPIView):
 
 class VmAssociationContextView(ContractAPIView):
     serializer_classes = {'get': VmAssociationContextQuerySerializer}
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_VM_ASSOCIATION
+    method_permissions = {'get': FeaturePrivilege.READONLY}
 
     def get(self, request):
         record_id = request.validated_data['record_id']
@@ -455,6 +469,9 @@ class VmAssociationContextView(ContractAPIView):
 
 class SecurityInspectionView(ContractAPIView):
     serializer_classes = {'post': SecurityInspectionSerializer}
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_SECURITY_INSPECTION
+    method_permissions = {'post': FeaturePrivilege.READWRITE}
 
     def post(self, request):
         payload = request.validated_data
@@ -477,6 +494,9 @@ class SecurityInspectionView(ContractAPIView):
 
 class ModelComparisonView(ContractAPIView):
     serializer_classes = {'get': ModelComparisonQuerySerializer}
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_MODEL_COMPARISON
+    method_permissions = {'get': FeaturePrivilege.READONLY}
 
     def get(self, request):
         term = request.validated_data['term']
