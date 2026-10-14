@@ -16,6 +16,9 @@ backend/staticfiles/
 frontend/node_modules/
 frontend/.angular/
 
+# Personal files accidentally copied into the repository root.
+/Downloads/
+
 # Local analysis contains machine paths and notes derived from the source project.
 graphify-out/
 migrationnote.md

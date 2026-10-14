@@ -17,6 +17,7 @@ This standalone demo shows:
 - side-by-side Django ORM and SQLAlchemy declarative models
 - a contextual assistant that combines Angular page state with canonical Django data
 - a FastAPI orchestration boundary with Server-Sent Events streaming
+- an isolated Pi document-agent service under `services/pi-docs/`
 
 ## Recommended Demo Walkthrough
 
@@ -128,6 +129,63 @@ The default `DeterministicAssistantProvider` requires no model key. Replace that
 provider when connecting a real model. An agent SDK is intentionally not used
 until the assistant needs autonomous tool selection, a multi-step agent loop,
 long-running session state, or sub-agents.
+
+## Pi Docs Sandbox
+
+The repository now includes the isolated Pi document-agent runtime under
+[`services/pi-docs`](services/pi-docs). It is deliberately kept outside both
+the Django app and the FastAPI gateway so the three responsibilities remain
+separate:
+
+```text
+frontend/             browser UI
+backend/              Django data, session, and authorization boundary
+assistant_gateway/    HTTP/SSE orchestration boundary
+services/pi-docs/     containerized Pi execution boundary
+```
+
+Build it from the repository root:
+
+```bash
+docker compose \
+  --project-directory services/pi-docs \
+  -f services/pi-docs/compose.yaml \
+  build
+```
+
+Run a one-shot documentation question using the host Pi login:
+
+```bash
+export DOCS_HOST_PATH="/absolute/path/to/approved/docs"
+services/pi-docs/run-with-local-auth.sh \
+  "Which document describes the sandbox network policy?"
+```
+
+Run an interactive terminal session:
+
+```bash
+services/pi-docs/run-with-local-auth.sh --interactive
+```
+
+This is currently an independently runnable CLI worker, not an HTTP service and
+not yet the provider behind `/assistant/stream`. A safe production integration
+should preserve the following boundary:
+
+```text
+Angular
+  -> assistant_gateway (authenticated request, validation, SSE)
+  -> private runner API or job queue
+  -> one ephemeral pi-docs container with an approved read-only docs mount
+  -> streamed result back through assistant_gateway
+```
+
+The browser must never receive Docker access or model credentials, and neither
+the gateway nor the Pi container should mount the Docker socket. The current
+Compose bridge network still permits general outbound traffic; before treating
+this as a production sandbox, restrict egress to the required model endpoint
+using infrastructure-level network policy. See
+[`services/pi-docs/README.md`](services/pi-docs/README.md) for its exact security
+boundary and limitations.
 
 ## Frontend
 

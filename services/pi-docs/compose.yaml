@@ -1,0 +1,35 @@
+services:
+  pi-docs:
+    build:
+      context: .
+      args:
+        PI_VERSION: "0.83.0"
+    image: local/pi-docs:0.83.0
+    read_only: true
+    user: "10001:10001"
+    working_dir: /docs
+    init: true
+    network_mode: bridge
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+      - /home/pi/.pi/agent:rw,noexec,nosuid,nodev,size=16m,uid=10001,gid=10001
+    volumes:
+      - type: bind
+        source: ${DOCS_HOST_PATH:-./sample-docs}
+        target: /docs
+        read_only: true
+    environment:
+      DOCS_ROOT: /docs
+      PI_PROVIDER: ${PI_PROVIDER:-openai}
+      PI_MODEL: ${PI_MODEL:-gpt-5-mini}
+      PI_API_KEY: ${PI_API_KEY:-}
+      PI_INTERACTIVE: ${PI_INTERACTIVE:-0}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
