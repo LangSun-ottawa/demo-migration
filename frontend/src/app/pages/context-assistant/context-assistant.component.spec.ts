@@ -40,8 +40,9 @@ class ContextAssistantServiceStub {
   async stream(
     _request: unknown,
     _signal: AbortSignal,
-    onEvent: (event: { type: 'delta'; data: { text: string } }) => void,
+    onEvent: (event: { type: 'tool_start' | 'delta'; data: Record<string, string> }) => void,
   ): Promise<void> {
+    onEvent({ type: 'tool_start', data: { call_id: 'call-1', name: 'query_vm_context' } });
     onEvent({ type: 'delta', data: { text: 'Streamed answer' } });
   }
 }
@@ -66,5 +67,6 @@ describe('ContextAssistantComponent', () => {
       { role: 'user', content: 'Which associations need review?' },
       { role: 'assistant', content: 'Streamed answer' },
     ]);
+    expect(fixture.componentInstance.toolActivity).toEqual(['Starting query_vm_context']);
   });
 });

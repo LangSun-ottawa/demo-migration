@@ -103,6 +103,88 @@ class DemoApiTests(TestCase):
         self.assertTrue(ready.json()['result']['ready'])
 
 
+class ValidationLibraryComparisonTests(TestCase):
+    valid_payload = {
+        'name': '  Demo User  ',
+        'age': 29,
+        'active': True,
+        'metadata': {'source': 'comparison-test'},
+        'tags': ['django', 'migration'],
+    }
+
+    endpoints = (
+        ('drf', '/api/demo/comparison/drf-echo'),
+        ('pydantic', '/api/demo/comparison/pydantic-echo'),
+    )
+
+    def test_both_implementations_return_the_same_business_shape(self):
+        for validator, endpoint in self.endpoints:
+            with self.subTest(validator=validator):
+                response = self.client.post(
+                    endpoint,
+                    data=self.valid_payload,
+                    content_type='application/json',
+                )
+
+                self.assertEqual(response.status_code, 200)
+                result = response.json()['result']
+                self.assertEqual(result['validator'], validator)
+                self.assertEqual(result['submitted']['name'], 'Demo User')
+                self.assertEqual(result['submitted']['age'], 29)
+                self.assertEqual(result['submitted']['active'], True)
+
+    def test_drf_uses_400_and_field_keyed_errors(self):
+        payload = {**self.valid_payload, 'age': 17}
+        response = self.client.post(
+            '/api/demo/comparison/drf-echo',
+            data=payload,
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('age', response.json())
+
+    def test_pydantic_uses_422_and_location_errors(self):
+        payload = {**self.valid_payload, 'age': 17}
+        response = self.client.post(
+            '/api/demo/comparison/pydantic-echo',
+            data=payload,
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['errors'][0]['loc'], ['age'])
+
+    def test_both_reject_unknown_fields(self):
+        payload = {**self.valid_payload, 'admin': True}
+
+        drf_response = self.client.post(
+            '/api/demo/comparison/drf-echo',
+            data=payload,
+            content_type='application/json',
+        )
+        pydantic_response = self.client.post(
+            '/api/demo/comparison/pydantic-echo',
+            data=payload,
+            content_type='application/json',
+        )
+
+        self.assertEqual(drf_response.status_code, 400)
+        self.assertIn('admin', drf_response.json())
+        self.assertEqual(pydantic_response.status_code, 422)
+        self.assertEqual(pydantic_response.json()['errors'][0]['loc'], ['admin'])
+
+    def test_both_reject_non_json_content(self):
+        for validator, endpoint in self.endpoints:
+            with self.subTest(validator=validator):
+                response = self.client.post(
+                    endpoint,
+                    data='name=Demo',
+                    content_type='text/plain',
+                )
+                self.assertEqual(response.status_code, 415)
+
+
 class ArchitectureLabTests(TestCase):
     def setUp(self):
         self.client = Client()

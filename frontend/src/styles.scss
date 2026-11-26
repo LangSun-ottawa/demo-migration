@@ -27,10 +27,7 @@ body {
   margin: 0;
   color: var(--ink-950);
   font-family: 'IBM Plex Sans', sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(198, 93, 0, 0.14), transparent 28%),
-    radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 30%),
-    linear-gradient(180deg, #fff8ef 0%, #fffdf7 42%, #f8fbff 100%);
+  background: #f8fafc;
 }
 
 *,
@@ -49,3 +46,17 @@ textarea {
 a {
   color: inherit;
 }
+/* Markdown generated inside Angular's sanitized innerHTML binding. */
+.assistant-markdown { color: #334155; line-height: 1.6; overflow-wrap: anywhere; }
+.assistant-markdown > :first-child { margin-top: .3rem; }
+.assistant-markdown > :last-child { margin-bottom: 0; }
+.assistant-markdown p { margin: .5rem 0; }
+.assistant-markdown ul, .assistant-markdown ol { margin: .5rem 0; padding-left: 1.4rem; }
+.assistant-markdown li { margin: .2rem 0; }
+.assistant-markdown code { padding: .1rem .3rem; background: #e2e8f0; border-radius: 4px; font-size: .86em; }
+.assistant-markdown pre { overflow-x: auto; padding: .8rem; background: #0f172a; color: #e2e8f0; border-radius: 8px; }
+.assistant-markdown pre code { padding: 0; background: none; color: inherit; }
+.assistant-markdown a { color: #1d4ed8; text-decoration: underline; }
+.assistant-markdown blockquote { margin: .5rem 0; padding-left: .8rem; border-left: 3px solid #94a3b8; }
+.assistant-markdown table { display: block; overflow-x: auto; border-collapse: collapse; }
+.assistant-markdown th, .assistant-markdown td { border: 1px solid #cbd5e1; padding: .4rem .6rem; text-align: left; }

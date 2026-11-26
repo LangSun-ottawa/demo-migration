@@ -137,7 +137,15 @@
     </div>
 
     @if (streamSource) {
-      <p class="stream-source">Context source: {{ streamSource }}</p>
+      <p class="stream-source">Agent run: {{ streamSource }}</p>
+    }
+
+    @if (toolActivity.length) {
+      <div class="stream-source" aria-live="polite">
+        @for (activity of toolActivity; track $index) {
+          <div>{{ activity }}</div>
+        }
+      </div>
     }
 
     <div class="quick-prompts">

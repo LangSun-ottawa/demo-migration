@@ -44,6 +44,7 @@ export class ContextAssistantComponent implements OnInit, OnDestroy {
   expandedAssociationIds: string[] = [];
   messages: ChatMessage[] = [];
   streamSource = '';
+  toolActivity: string[] = [];
   errorMessage = '';
   isLoadingContext = false;
   isStreaming = false;
@@ -92,6 +93,7 @@ export class ContextAssistantComponent implements OnInit, OnDestroy {
     this.stopStream();
     this.messages = [];
     this.streamSource = '';
+    this.toolActivity = [];
     this.loadContext(recordId);
   }
 
@@ -139,6 +141,7 @@ export class ContextAssistantComponent implements OnInit, OnDestroy {
     ];
     this.errorMessage = '';
     this.streamSource = '';
+    this.toolActivity = [];
     this.isStreaming = true;
     this.streamController = new AbortController();
 
@@ -176,7 +179,22 @@ export class ContextAssistantComponent implements OnInit, OnDestroy {
 
   private handleStreamEvent(event: AssistantStreamEvent): void {
     if (event.type === 'meta') {
-      this.streamSource = `${event.data.source} / ${event.data.record_name}`;
+      this.streamSource = `${event.data.provider} / run ${event.data.run_id}`;
+      return;
+    }
+    if (event.type === 'tool_start') {
+      this.toolActivity = [...this.toolActivity, `Starting ${event.data.name}`];
+      return;
+    }
+    if (event.type === 'tool_result') {
+      this.toolActivity = [
+        ...this.toolActivity,
+        `${event.data.name}: ${event.data.summary}`,
+      ];
+      return;
+    }
+    if (event.type === 'error') {
+      this.errorMessage = event.data.message;
       return;
     }
     if (event.type === 'delta') {

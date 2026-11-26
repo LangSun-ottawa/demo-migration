@@ -1,0 +1,52 @@
+<main class="list-page">
+  <header>
+    <div><a routerLink="/setup">← Back to assistant</a><h1>{{ title }}</h1><p>Traditional Django-backed list and CRUD controls.</p></div>
+    <button type="button" (click)="reset()">+ Create {{ singular }}</button>
+  </header>
+
+  @if (error) { <div class="notice error">{{ error }}</div> }
+  @if (message) { <div class="notice success">{{ message }}</div> }
+
+  <section class="editor">
+    <h2>{{ editingId ? 'Edit' : 'Create' }} {{ singular }}</h2>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      @if (resource === 'profiles') {
+        <label>Name<input formControlName="name"></label>
+        <label>Access<select formControlName="access_level"><option value="readonly">Read only</option><option value="readwrite">Read/write</option></select></label>
+      }
+      @if (resource === 'users') {
+        <label>Username<input formControlName="username"></label>
+        <label>Email<input type="email" formControlName="email"></label>
+        <label>Profile<select formControlName="profile_id"><option [ngValue]="0">Select profile</option>@for (item of snapshot.profiles; track item.id) { <option [ngValue]="item.id">{{ item.name }}</option> }</select></label>
+      }
+      @if (resource === 'instances') {
+        <label>Name<input formControlName="name"></label>
+        <label>Environment<select formControlName="environment"><option value="dev">Development</option><option value="test">Test</option><option value="prod">Production</option></select></label>
+      }
+      @if (resource === 'adapters') {
+        <label>Name<input formControlName="name"></label>
+        <label>Type<select formControlName="adapter_type"><option value="rest">REST</option><option value="syslog">Syslog</option><option value="custom">Custom</option></select></label>
+        <label>Endpoint<input formControlName="endpoint"></label>
+        <label>Instance<select formControlName="instance_id"><option [ngValue]="0">Select instance</option>@for (item of snapshot.instances; track item.id) { <option [ngValue]="item.id">{{ item.name }}</option> }</select></label>
+      }
+      <div class="form-actions"><button type="submit" [disabled]="busy">{{ busy ? 'Saving…' : 'Save' }}</button>@if (editingId) { <button class="secondary" type="button" (click)="reset()">Cancel</button> }</div>
+    </form>
+  </section>
+
+  <section class="table-card">
+    <div class="table-title"><h2>{{ title }}</h2><span>{{ rows.length }} total</span></div>
+    @if (!rows.length) {
+      <div class="empty">No records yet. Create one here or ask the assistant.</div>
+    } @else {
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Details</th><th>Related to</th><th>Actions</th></tr></thead>
+        <tbody>@for (row of rows; track row.id) {
+          <tr [class.highlighted]="row.id === highlightedId"><td>#{{ row.id }}</td><td><strong>{{ row.name || row.username }}</strong>@if (row.email) { <small>{{ row.email }}</small> }</td>
+            <td>{{ row.access_level || row.environment || row.adapter_type || '—' }}@if (row.status) { <small>{{ row.status }}</small> }</td>
+            <td>{{ row.profile_name || row.instance_name || '—' }}@if (row.endpoint) { <small>{{ row.endpoint }}</small> }</td>
+            <td><div class="row-actions"><button class="edit" type="button" (click)="edit(row)">Edit</button><button class="delete" type="button" (click)="remove(row)">Delete</button></div></td>
+          </tr>
+        }</tbody>
+      </table></div>
+    }
+  </section>
+</main>

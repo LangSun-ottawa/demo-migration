@@ -14,6 +14,7 @@ backend/static/frontend/
 backend/staticfiles/
 
 frontend/node_modules/
+**/node_modules/
 frontend/.angular/
 
 # Personal files accidentally copied into the repository root.
@@ -22,3 +23,13 @@ frontend/.angular/
 # Local analysis contains machine paths and notes derived from the source project.
 graphify-out/
 migrationnote.md
+
+# Personal learning notes and local work log; never commit.
+/docs/LOCAL_AGENT_LEARNING_NOTES.md
+
+# Local gap analysis / build plan; never commit.
+/docs/PI_GATEWAY_PLAN.md
+
+# Personal interview preparation notes, not project documentation.
+/TODO_README.md
+*.code-workspace

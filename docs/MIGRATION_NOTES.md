@@ -61,29 +61,34 @@ Both examples treat user input as bound data rather than executable SQL.
 ```text
 Angular question + narrow transient page state
   -> FastAPI /assistant/stream
+  -> run-scoped AssistantProvider
+  -> query_vm_context through the FastAPI Tool Broker
   -> authenticated Django page-context API
-  -> DRF serializer validation + Django ORM
-  -> replaceable AssistantProvider
-  -> SSE meta / delta / done events
+  -> DRF serializer + FeaturePermission + Django ORM
+  -> SSE meta / tool progress / delta / error / done events
   -> Angular ReadableStream parser
 ```
 
 Angular owns presentation state such as the selected record, visible filter,
 active panel, and expanded rows. Django owns canonical business context.
-FastAPI forwards the Django session cookie and fetches that canonical context
-instead of reading Django's database directly.
+FastAPI stores the Django session cookie only for the current run. It does not
+send the Cookie to the Agent provider. The Tool Broker recovers it by run ID,
+checks a short-lived execution token and tool allowlist, and calls Django rather
+than reading Django's database directly.
 
-The default `DeterministicAssistantProvider` keeps the repository runnable
-without an API key. A real model provider can replace it without changing the
-Django API, FastAPI endpoint contract, SSE framing, or Angular parser.
+The default asynchronous `DeterministicAssistantProvider` keeps the repository
+runnable without an API key and exercises the same broker policy boundary. The
+Pi HTTP adapter can replace it without changing the Django API, browser request
+contract, or Angular parser. The Pi HTTP service is now implemented under
+`services/pi-agent` for the main setup demo. See AI_HANDOFF.md and ../TODO.md.
 
-## Why No Agent SDK Yet
+## Pi Agent Runtime
 
-The current interaction performs one bounded context fetch and one streamed
-answer. It does not need autonomous tool selection, repeated tool calls,
-durable agent memory, sub-agents, or a long-running task loop. The provider
-interface preserves an upgrade path without introducing those concerns before
-they are required.
+The original VM experiment needed one bounded fetch and a streamed answer.
+The setup demo now uses Pi CLI for model-selected, repeated tool calls and
+structured clarification. Gateway retains the provider interface and model-free
+deterministic path. Durable server-side conversations and tool history are not
+implemented yet; browser text history currently provides cross-turn continuity.
 
 ## Interview Framing
 

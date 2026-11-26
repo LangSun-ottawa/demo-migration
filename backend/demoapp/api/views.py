@@ -4,6 +4,8 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.core.cache import cache
+from django.middleware.csrf import get_token
+from django.db.models.deletion import ProtectedError
 from rest_framework.parsers import MultiPartParser
 
 from demoapp.api.base import ContractAPIView
@@ -11,6 +13,7 @@ from demoapp.api.permissions import (
     FEATURE_MODEL_COMPARISON,
     FEATURE_SECURITY_INSPECTION,
     FEATURE_VM_ASSOCIATION,
+    FEATURE_DEMO_SETUP,
     FeaturePermission,
     FeaturePrivilege,
 )
@@ -24,10 +27,20 @@ from demoapp.api.serializers import (
     SystemOperationStatusQuerySerializer,
     UploadSerializer,
     VmAssociationContextQuerySerializer,
+    AdapterConfigCreateSerializer,
+    AdminProfileCreateSerializer,
+    AdminUserCreateSerializer,
+    ManagedInstanceCreateSerializer,
 )
 from demoapp.definitions.fdc_http import ERROR_CODE, HTTP_STATUS_CODE
 from demoapp.fdc_frame.response import FdcJsonResponse
-from demoapp.models import DeviceRecord
+from demoapp.models import (
+    AdapterConfig,
+    AdminProfile,
+    AdminUserRecord,
+    DeviceRecord,
+    ManagedInstance,
+)
 from demoapp.sqlalchemy_models import search_audit_records
 
 MOCK_RECORDS = [
@@ -370,6 +383,8 @@ class SessionView(ContractAPIView):
     serializer_classes = {'get': EmptySerializer}
 
     def get(self, request):
+        # Ensure Angular has Django's CSRF cookie before authenticated writes.
+        get_token(request)
         return FdcJsonResponse(
             True,
             message='Django session state resolved.',
@@ -509,3 +524,168 @@ class ModelComparisonView(ContractAPIView):
                 **self.request_context(request),
             },
         )
+
+
+def build_setup_snapshot():
+    return {
+        'profiles': list(AdminProfile.objects.order_by('id').values('id', 'name', 'access_level')),
+        'users': [
+            {
+                'id': item.id,
+                'username': item.username,
+                'email': item.email,
+                'profile_id': item.profile_id,
+                'profile_name': item.profile.name,
+            }
+            for item in AdminUserRecord.objects.select_related('profile').order_by('id')
+        ],
+        'instances': list(
+            ManagedInstance.objects.order_by('id').values('id', 'name', 'environment', 'status')
+        ),
+        'adapters': [
+            {
+                'id': item.id,
+                'name': item.name,
+                'adapter_type': item.adapter_type,
+                'endpoint': item.endpoint,
+                'instance_id': item.instance_id,
+                'instance_name': item.instance.name,
+                'status': item.status,
+            }
+            for item in AdapterConfig.objects.select_related('instance').order_by('id')
+        ],
+    }
+
+
+def build_creation_result(resource, record_id):
+    snapshot = build_setup_snapshot()
+    record = next(item for item in snapshot[resource] if item['id'] == record_id)
+    return {**snapshot, 'created_record': {'resource': resource, 'record': record}}
+
+
+class SetupSnapshotView(ContractAPIView):
+    serializer_classes = {'get': EmptySerializer}
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_DEMO_SETUP
+    method_permissions = {'get': FeaturePrivilege.READONLY}
+
+    def get(self, request):
+        return FdcJsonResponse(True, result=build_setup_snapshot())
+
+
+class AdminProfileCreateView(ContractAPIView):
+    serializer_classes = {'post': AdminProfileCreateSerializer}
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_DEMO_SETUP
+    method_permissions = {'post': FeaturePrivilege.READWRITE}
+
+    def post(self, request):
+        record = AdminProfile.objects.create(**request.validated_data)
+        return FdcJsonResponse(True, message='Admin profile created.', result=build_creation_result('profiles', record.id))
+
+
+class AdminUserCreateView(ContractAPIView):
+    serializer_classes = {'post': AdminUserCreateSerializer}
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_DEMO_SETUP
+    method_permissions = {'post': FeaturePrivilege.READWRITE}
+
+    def post(self, request):
+        record = AdminUserRecord.objects.create(**request.validated_data)
+        return FdcJsonResponse(True, message='Admin user created.', result=build_creation_result('users', record.id))
+
+
+class ManagedInstanceCreateView(ContractAPIView):
+    serializer_classes = {'post': ManagedInstanceCreateSerializer}
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_DEMO_SETUP
+    method_permissions = {'post': FeaturePrivilege.READWRITE}
+
+    def post(self, request):
+        record = ManagedInstance.objects.create(**request.validated_data)
+        return FdcJsonResponse(True, message='Instance created.', result=build_creation_result('instances', record.id))
+
+
+class AdapterConfigCreateView(ContractAPIView):
+    serializer_classes = {'post': AdapterConfigCreateSerializer}
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_DEMO_SETUP
+    method_permissions = {'post': FeaturePrivilege.READWRITE}
+
+    def post(self, request):
+        record = AdapterConfig.objects.create(**request.validated_data)
+        return FdcJsonResponse(
+            True,
+            message='Adapter configuration saved. No real connection was attempted.',
+            result=build_creation_result('adapters', record.id),
+        )
+
+
+class SetupDetailView(ContractAPIView):
+    permission_classes = [FeaturePermission]
+    feature_key = FEATURE_DEMO_SETUP
+    method_permissions = {
+        'put': FeaturePrivilege.READWRITE,
+        'delete': FeaturePrivilege.READWRITE,
+    }
+    model = None
+    resource_label = 'record'
+
+    def get_object(self, record_id):
+        return self.model.objects.filter(id=record_id).first()
+
+    def not_found(self):
+        return FdcJsonResponse(
+            False,
+            message=f'{self.resource_label.title()} not found.',
+            errors=[{'message': f'The requested {self.resource_label} does not exist.', 'code': ERROR_CODE.BUSINESS.value}],
+            http_code=404,
+        )
+
+    def put(self, request, record_id):
+        record = self.get_object(record_id)
+        if record is None:
+            return self.not_found()
+        for field, value in request.validated_data.items():
+            setattr(record, field, value)
+        record.save()
+        return FdcJsonResponse(True, message=f'{self.resource_label.title()} updated.', result=build_setup_snapshot())
+
+    def delete(self, request, record_id):
+        record = self.get_object(record_id)
+        if record is None:
+            return self.not_found()
+        try:
+            record.delete()
+        except ProtectedError:
+            return FdcJsonResponse(
+                False,
+                message=f'{self.resource_label.title()} is still in use.',
+                errors=[{'message': 'Delete dependent records first.', 'code': ERROR_CODE.BUSINESS.value}],
+                http_code=409,
+            )
+        return FdcJsonResponse(True, message=f'{self.resource_label.title()} deleted.', result=build_setup_snapshot())
+
+
+class AdminProfileDetailView(SetupDetailView):
+    serializer_classes = {'put': AdminProfileCreateSerializer, 'delete': EmptySerializer}
+    model = AdminProfile
+    resource_label = 'admin profile'
+
+
+class AdminUserDetailView(SetupDetailView):
+    serializer_classes = {'put': AdminUserCreateSerializer, 'delete': EmptySerializer}
+    model = AdminUserRecord
+    resource_label = 'admin user'
+
+
+class ManagedInstanceDetailView(SetupDetailView):
+    serializer_classes = {'put': ManagedInstanceCreateSerializer, 'delete': EmptySerializer}
+    model = ManagedInstance
+    resource_label = 'instance'
+
+
+class AdapterConfigDetailView(SetupDetailView):
+    serializer_classes = {'put': AdapterConfigCreateSerializer, 'delete': EmptySerializer}
+    model = AdapterConfig
+    resource_label = 'adapter'

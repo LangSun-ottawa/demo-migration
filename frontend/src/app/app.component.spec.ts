@@ -18,17 +18,11 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy();
   });
 
-  it(`should have the 'Coexist Demo' title`, () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app.title).toEqual('Coexist Demo');
-  });
-
-  it('should render navigation shell', () => {
+  it('should render the simplified navigation', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Coexist Demo');
-    expect(compiled.querySelector('.sidebar .nav-item')?.textContent).toContain('API Contract Playground');
+    expect(compiled.querySelector('.brand')?.textContent).toContain('Migration Demo');
+    expect(compiled.querySelector('nav')?.textContent).toContain('Setup demo');
   });
 });

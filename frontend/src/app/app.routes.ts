@@ -6,13 +6,23 @@ import { LegacyFrameComponent } from './pages/legacy-frame/legacy-frame.componen
 import { SystemRedirectComponent } from './pages/system-redirect/system-redirect.component';
 import { ArchitectureLabComponent } from './pages/architecture-lab/architecture-lab.component';
 import { ContextAssistantComponent } from './pages/context-assistant/context-assistant.component';
+import { SetupDemoComponent } from './pages/setup-demo/setup-demo.component';
+import { ResourceListComponent } from './pages/resource-list/resource-list.component';
 
 export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'demo/form',
+    redirectTo: 'setup',
   },
+  {
+    path: 'setup',
+    component: SetupDemoComponent,
+  },
+  { path: 'admin-profiles', component: ResourceListComponent, data: { resource: 'profiles', title: 'Admin Profiles', singular: 'Admin Profile' } },
+  { path: 'admin-users', component: ResourceListComponent, data: { resource: 'users', title: 'Admin Users', singular: 'Admin User' } },
+  { path: 'instances', component: ResourceListComponent, data: { resource: 'instances', title: 'Instances', singular: 'Instance' } },
+  { path: 'adapters', component: ResourceListComponent, data: { resource: 'adapters', title: 'Adapters', singular: 'Adapter' } },
   {
     path: 'demo/form',
     component: DemoFormComponent,
@@ -45,6 +55,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'demo/form',
+    redirectTo: 'setup',
   },
 ];

@@ -1,0 +1,83 @@
+<main class="demo-page">
+  <header class="intro">
+    <div>
+      <p class="eyebrow">Django function-call demo</p>
+      <h1>Admin setup assistant</h1>
+      <p>Tell the assistant what to create. Every write still passes through Django authentication and permissions.</p>
+    </div>
+    <span class="status" [class.online]="authenticated">{{ authenticated ? 'Signed in' : 'Login required' }}</span>
+  </header>
+
+  @if (error) { <div class="notice error">{{ error }}</div> }
+
+  @if (!authenticated) {
+    <section class="login-card">
+      <div><h2>Sign in first</h2><p>The chatbot uses your Django session. The demo account is pre-filled.</p></div>
+      <form [formGroup]="loginForm" (ngSubmit)="login()">
+        <label>Username<input formControlName="username" autocomplete="username"></label>
+        <label>Password<input type="password" formControlName="password" autocomplete="current-password"></label>
+        <button type="submit" [disabled]="busy">{{ busy ? 'Signing in…' : 'Login' }}</button>
+      </form>
+    </section>
+  } @else {
+    <div class="workspace">
+      <section class="chat-card">
+        <div class="chat-heading">
+          <div><h2>What should I create?</h2><p>I can call only these four registered tools.</p></div>
+          <span class="live-dot">Agent ready</span>
+        </div>
+        <div class="quick-actions" aria-label="Example requests">
+          @for (prompt of prompts; track prompt) {
+            <button type="button" class="prompt" [disabled]="busy" (click)="usePrompt(prompt)">{{ prompt }}</button>
+          }
+        </div>
+        <div class="conversation" aria-live="polite">
+          @if (!messages.length) {
+            <div class="welcome"><span>AI</span><p>Try “Create an Admin Profile”, then create a user, an instance, and an adapter.</p></div>
+          }
+          @for (message of messages; track $index) {
+            <div class="message" [class.user]="message.role === 'user'">
+              <strong>{{ message.role === 'user' ? 'You' : 'AI' }}</strong>
+              @if (message.role === 'assistant') {
+                @if (message.content) {
+                  <div class="assistant-markdown" [innerHTML]="message.content | assistantMarkdown"></div>
+                } @else if (!message.cards?.length) {
+                  <p>{{ busy && $last ? 'Working…' : 'No reply received.' }}</p>
+                }
+                @for (card of message.cards ?? []; track card.callId) {
+                  <section class="created-card" aria-label="Created record">
+                    <div class="created-heading"><span>✓ {{ card.title }} created</span><small>#{{ card.id }}</small></div>
+                    <h3>{{ card.name }}</h3>
+                    <dl>@for (field of card.fields; track field.label) {
+                      <div><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></div>
+                    }</dl>
+                    <a [routerLink]="card.route" [queryParams]="{ record: card.id }">View record →</a>
+                  </section>
+                }
+              } @else {
+                <p>{{ message.content }}</p>
+              }
+            </div>
+          }
+        </div>
+        @if (toolActivity.length) {
+          <div class="tool-log"><strong>Function calls</strong>@for (activity of toolActivity; track activity) { <span>{{ activity }}</span> }</div>
+        }
+        <div class="composer">
+          <textarea [formControl]="question" (keydown)="onComposerKeydown($event)" aria-label="Message" aria-describedby="composer-hint" rows="2" placeholder="Ask the assistant to create something…"></textarea>
+          <button type="button" (click)="send()" [disabled]="busy || !question.value.trim()">{{ busy ? 'Running…' : 'Send' }}</button>
+          <small id="composer-hint" class="composer-hint">Enter to send · Shift+Enter for a new line</small>
+        </div>
+      </section>
+
+      <aside class="results-card">
+        <div><p class="eyebrow">Django database</p><h2>Created records</h2></div>
+        <a class="result-row" routerLink="/admin-profiles"><span>1</span><div><strong>Admin Profiles</strong><small>{{ snapshot.profiles.at(-1)?.name || 'None yet' }}</small></div><b>{{ snapshot.profiles.length }}</b></a>
+        <a class="result-row" routerLink="/admin-users"><span>2</span><div><strong>Admin Users</strong><small>{{ snapshot.users.at(-1)?.username || 'None yet' }}</small></div><b>{{ snapshot.users.length }}</b></a>
+        <a class="result-row" routerLink="/instances"><span>3</span><div><strong>Instances</strong><small>{{ snapshot.instances.at(-1)?.name || 'None yet' }}</small></div><b>{{ snapshot.instances.length }}</b></a>
+        <a class="result-row" routerLink="/adapters"><span>4</span><div><strong>Adapters</strong><small>{{ snapshot.adapters.at(-1)?.name || 'None yet' }}</small></div><b>{{ snapshot.adapters.length }}</b></a>
+        <p class="footnote">Click a resource to open its traditional list, create, edit and delete page.</p>
+      </aside>
+    </div>
+  }
+</main>

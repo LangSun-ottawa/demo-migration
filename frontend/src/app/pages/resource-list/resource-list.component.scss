@@ -1,0 +1,21 @@
+:host { display: block; }
+.list-page { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+header { display: flex; justify-content: space-between; gap: 1rem; align-items: end; margin-bottom: 1.25rem; }
+header a { color: #2563eb; text-decoration: none; font-weight: 700; font-size: .82rem; }
+h1 { margin: .45rem 0 0; color: #0f172a; font-size: 2.25rem; letter-spacing: -.04em; }
+h2 { margin: 0; color: #0f172a; font-size: 1.05rem; }
+p { margin: .35rem 0 0; color: #64748b; }
+button { border: 0; border-radius: 9px; padding: .65rem .9rem; background: #2563eb; color: white; font-weight: 750; cursor: pointer; }
+button:disabled { opacity: .5; }
+.notice { margin-bottom: 1rem; padding: .75rem 1rem; border-radius: 9px; }
+.notice.error { background: #fef2f2; color: #991b1b; }.notice.success { background: #ecfdf5; color: #166534; }
+.editor, .table-card { margin-bottom: 1rem; padding: 1.15rem; border: 1px solid #e2e8f0; border-radius: 15px; background: white; box-shadow: 0 8px 24px rgba(15,23,42,.05); }
+form { display: grid; gap: .75rem; margin-top: .9rem; }
+label { display: grid; gap: .3rem; color: #475569; font-size: .8rem; font-weight: 700; }
+input, select { box-sizing: border-box; width: 100%; padding: .65rem .7rem; border: 1px solid #cbd5e1; border-radius: 9px; background: white; font: inherit; }
+.form-actions, .row-actions { display: flex; gap: .45rem; align-items: end; }.secondary, .edit { background: #e2e8f0; color: #334155; }.delete { background: #fee2e2; color: #b91c1c; }
+.table-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: .85rem; }.table-title span { color: #64748b; font-size: .8rem; }
+.table-wrap { overflow-x: auto; }table { width: 100%; border-collapse: collapse; }th, td { padding: .75rem; border-top: 1px solid #e2e8f0; text-align: left; vertical-align: top; }th { color: #64748b; font-size: .72rem; text-transform: uppercase; }td { color: #334155; }td small { display: block; margin-top: .2rem; color: #64748b; }.empty { padding: 2.5rem; text-align: center; color: #64748b; background: #f8fafc; border-radius: 10px; }
+@media (min-width: 760px) { form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }.form-actions { grid-column: 1 / -1; } }
+@media (max-width: 620px) { header { align-items: start; flex-direction: column; } th:nth-child(1), td:nth-child(1), th:nth-child(4), td:nth-child(4) { display: none; } }
+.highlighted { background: #eff6ff; outline: 2px solid #93c5fd; outline-offset: -2px; }

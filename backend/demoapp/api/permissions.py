@@ -13,6 +13,7 @@ class FeaturePrivilege(StrEnum):
 FEATURE_MODEL_COMPARISON = 'model_comparison'
 FEATURE_SECURITY_INSPECTION = 'security_inspection'
 FEATURE_VM_ASSOCIATION = 'vm_association'
+FEATURE_DEMO_SETUP = 'demo_setup'
 
 
 def feature_group_name(feature_key, privilege):

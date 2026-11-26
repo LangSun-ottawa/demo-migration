@@ -59,15 +59,37 @@ export type AssistantStreamEvent =
       type: 'meta';
       data: {
         request_id: string;
-        source: string;
-        record_id: number;
-        record_name: string;
+        run_id: string;
+        provider: string;
+      };
+    }
+  | {
+      type: 'tool_start';
+      data: { call_id: string; name: string };
+    }
+  | {
+      type: 'tool_result';
+      data: {
+        call_id: string;
+        name: string;
+        ok: boolean;
+        summary: string;
+        result?: Record<string, unknown>;
+        error?: { code: string; message: string; status_code?: number | null };
+        question?: string;
+        missing_fields?: string[];
       };
     }
   | { type: 'delta'; data: { text: string } }
-  | { type: 'done'; data: { request_id: string } };
+  | { type: 'error'; data: { code: string; message: string } }
+  | {
+      type: 'done';
+      data: { request_id: string; run_id: string; status: string };
+    };
 
 export function parseSseBlock(block: string): AssistantStreamEvent | null {
+  // DEBUG: inspect the raw SSE wire format from FastAPI. Remove when done.
+  console.log('[SSE raw block]', block);
   const lines = block.split('\n');
   const eventLine = lines.find((line) => line.startsWith('event:'));
   const dataLines = lines
@@ -79,7 +101,7 @@ export function parseSseBlock(block: string): AssistantStreamEvent | null {
   }
 
   const type = eventLine.slice(6).trim();
-  if (type !== 'meta' && type !== 'delta' && type !== 'done') {
+  if (!['meta', 'tool_start', 'tool_result', 'delta', 'error', 'done'].includes(type)) {
     return null;
   }
 

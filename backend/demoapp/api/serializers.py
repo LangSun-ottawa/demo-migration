@@ -3,6 +3,7 @@ from django.utils.html import escape
 from rest_framework import serializers
 
 from demoapp.api.base import EmptySerializer, StrictSerializer
+from demoapp.models import AdapterConfig, AdminProfile, AdminUserRecord, ManagedInstance
 
 
 class MetadataSerializer(StrictSerializer):
@@ -82,6 +83,71 @@ class SystemOperationStatusQuerySerializer(StrictSerializer):
     operation = serializers.ChoiceField(choices=['demo-reboot'])
 
 
+class AdminProfileCreateSerializer(StrictSerializer):
+    name = serializers.CharField(max_length=80)
+    access_level = serializers.ChoiceField(choices=['readonly', 'readwrite'])
+
+    def validate_name(self, value):
+        query = AdminProfile.objects.filter(name=value)
+        record_id = self.context.get('request').parser_context.get('kwargs', {}).get('record_id')
+        if record_id:
+            query = query.exclude(id=record_id)
+        if query.exists():
+            raise serializers.ValidationError('A profile with this name already exists.')
+        return value
+
+
+class AdminUserCreateSerializer(StrictSerializer):
+    username = serializers.CharField(max_length=80)
+    email = serializers.EmailField()
+    profile_id = serializers.PrimaryKeyRelatedField(
+        source='profile',
+        queryset=AdminProfile.objects.all(),
+    )
+
+    def validate_username(self, value):
+        query = AdminUserRecord.objects.filter(username=value)
+        record_id = self.context.get('request').parser_context.get('kwargs', {}).get('record_id')
+        if record_id:
+            query = query.exclude(id=record_id)
+        if query.exists():
+            raise serializers.ValidationError('An admin user with this username already exists.')
+        return value
+
+
+class ManagedInstanceCreateSerializer(StrictSerializer):
+    name = serializers.CharField(max_length=80)
+    environment = serializers.ChoiceField(choices=['dev', 'test', 'prod'])
+
+    def validate_name(self, value):
+        query = ManagedInstance.objects.filter(name=value)
+        record_id = self.context.get('request').parser_context.get('kwargs', {}).get('record_id')
+        if record_id:
+            query = query.exclude(id=record_id)
+        if query.exists():
+            raise serializers.ValidationError('An instance with this name already exists.')
+        return value
+
+
+class AdapterConfigCreateSerializer(StrictSerializer):
+    name = serializers.CharField(max_length=80)
+    adapter_type = serializers.ChoiceField(choices=['rest', 'syslog', 'custom'])
+    endpoint = serializers.CharField(max_length=200)
+    instance_id = serializers.PrimaryKeyRelatedField(
+        source='instance',
+        queryset=ManagedInstance.objects.all(),
+    )
+
+    def validate_name(self, value):
+        query = AdapterConfig.objects.filter(name=value)
+        record_id = self.context.get('request').parser_context.get('kwargs', {}).get('record_id')
+        if record_id:
+            query = query.exclude(id=record_id)
+        if query.exists():
+            raise serializers.ValidationError('An adapter with this name already exists.')
+        return value
+
+
 __all__ = [
     'EchoSerializer',
     'EmptySerializer',
@@ -92,4 +158,8 @@ __all__ = [
     'SystemOperationStatusQuerySerializer',
     'UploadSerializer',
     'VmAssociationContextQuerySerializer',
+    'AdapterConfigCreateSerializer',
+    'AdminProfileCreateSerializer',
+    'AdminUserCreateSerializer',
+    'ManagedInstanceCreateSerializer',
 ]

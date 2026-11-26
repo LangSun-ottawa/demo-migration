@@ -1,6 +1,12 @@
 from django.urls import path
 
 from demoapp.api.views import (
+    AdapterConfigCreateView,
+    AdapterConfigDetailView,
+    AdminProfileCreateView,
+    AdminProfileDetailView,
+    AdminUserCreateView,
+    AdminUserDetailView,
     ContractCatalogView,
     EchoView,
     ErrorRedirectView,
@@ -15,9 +21,22 @@ from demoapp.api.views import (
     TemporaryRedirectView,
     UploadView,
     VmAssociationContextView,
+    ManagedInstanceCreateView,
+    ManagedInstanceDetailView,
+    SetupSnapshotView,
 )
+from demoapp.api.validation_comparison import DrfEchoView, PydanticEchoView
 
 urlpatterns = [
+    path('api/demo/secure/setup', SetupSnapshotView.as_view(), name='api-demo-setup'),
+    path('api/demo/secure/setup/profiles', AdminProfileCreateView.as_view(), name='api-demo-create-profile'),
+    path('api/demo/secure/setup/profiles/<int:record_id>', AdminProfileDetailView.as_view(), name='api-demo-profile-detail'),
+    path('api/demo/secure/setup/users', AdminUserCreateView.as_view(), name='api-demo-create-user'),
+    path('api/demo/secure/setup/users/<int:record_id>', AdminUserDetailView.as_view(), name='api-demo-user-detail'),
+    path('api/demo/secure/setup/instances', ManagedInstanceCreateView.as_view(), name='api-demo-create-instance'),
+    path('api/demo/secure/setup/instances/<int:record_id>', ManagedInstanceDetailView.as_view(), name='api-demo-instance-detail'),
+    path('api/demo/secure/setup/adapters', AdapterConfigCreateView.as_view(), name='api-demo-create-adapter'),
+    path('api/demo/secure/setup/adapters/<int:record_id>', AdapterConfigDetailView.as_view(), name='api-demo-adapter-detail'),
     path('api/demo/auth/login', LoginView.as_view(), name='api-auth-login'),
     path('api/demo/auth/logout', LogoutView.as_view(), name='api-auth-logout'),
     path('api/demo/auth/session', SessionView.as_view(), name='api-auth-session'),
@@ -30,6 +49,12 @@ urlpatterns = [
         name='api-vm-association-context',
     ),
     path('api/demo/echo', EchoView.as_view(), name='api-echo'),
+    path('api/demo/comparison/drf-echo', DrfEchoView.as_view(), name='api-drf-echo'),
+    path(
+        'api/demo/comparison/pydantic-echo',
+        PydanticEchoView.as_view(),
+        name='api-pydantic-echo',
+    ),
     path('api/demo/search', SearchView.as_view(), name='api-search'),
     path('api/demo/upload', UploadView.as_view(), name='api-upload'),
     path('api/demo/redirect/temp', TemporaryRedirectView.as_view(), name='api-redirect-temp'),
