@@ -1,4 +1,5 @@
 import time
+from django.conf import settings
 
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
@@ -9,6 +10,7 @@ from django.db.models.deletion import ProtectedError
 from rest_framework.parsers import MultiPartParser
 
 from demoapp.api.base import ContractAPIView
+from demoapp.api.idempotency import IdempotentCreateView
 from demoapp.api.permissions import (
     FEATURE_MODEL_COMPARISON,
     FEATURE_SECURITY_INSPECTION,
@@ -16,6 +18,7 @@ from demoapp.api.permissions import (
     FEATURE_DEMO_SETUP,
     FeaturePermission,
     FeaturePrivilege,
+    get_user_feature_privilege,
 )
 from demoapp.api.serializers import (
     EchoSerializer,
@@ -391,6 +394,8 @@ class SessionView(ContractAPIView):
             result={
                 'authenticated': request.user.is_authenticated,
                 'username': request.user.username if request.user.is_authenticated else None,
+                'setup_access': get_user_feature_privilege(request.user, FEATURE_DEMO_SETUP).value,
+                'saml_enabled': settings.SAML_ENABLED,
                 **self.request_context(request),
             },
         )
@@ -573,53 +578,33 @@ class SetupSnapshotView(ContractAPIView):
         return FdcJsonResponse(True, result=build_setup_snapshot())
 
 
-class AdminProfileCreateView(ContractAPIView):
+class AdminProfileCreateView(IdempotentCreateView):
+    model, resource = AdminProfile, 'profiles'
     serializer_classes = {'post': AdminProfileCreateSerializer}
     permission_classes = [FeaturePermission]
     feature_key = FEATURE_DEMO_SETUP
     method_permissions = {'post': FeaturePrivilege.READWRITE}
 
-    def post(self, request):
-        record = AdminProfile.objects.create(**request.validated_data)
-        return FdcJsonResponse(True, message='Admin profile created.', result=build_creation_result('profiles', record.id))
-
-
-class AdminUserCreateView(ContractAPIView):
+class AdminUserCreateView(IdempotentCreateView):
+    model, resource = AdminUserRecord, 'users'
     serializer_classes = {'post': AdminUserCreateSerializer}
     permission_classes = [FeaturePermission]
     feature_key = FEATURE_DEMO_SETUP
     method_permissions = {'post': FeaturePrivilege.READWRITE}
 
-    def post(self, request):
-        record = AdminUserRecord.objects.create(**request.validated_data)
-        return FdcJsonResponse(True, message='Admin user created.', result=build_creation_result('users', record.id))
-
-
-class ManagedInstanceCreateView(ContractAPIView):
+class ManagedInstanceCreateView(IdempotentCreateView):
+    model, resource = ManagedInstance, 'instances'
     serializer_classes = {'post': ManagedInstanceCreateSerializer}
     permission_classes = [FeaturePermission]
     feature_key = FEATURE_DEMO_SETUP
     method_permissions = {'post': FeaturePrivilege.READWRITE}
 
-    def post(self, request):
-        record = ManagedInstance.objects.create(**request.validated_data)
-        return FdcJsonResponse(True, message='Instance created.', result=build_creation_result('instances', record.id))
-
-
-class AdapterConfigCreateView(ContractAPIView):
+class AdapterConfigCreateView(IdempotentCreateView):
+    model, resource = AdapterConfig, 'adapters'
     serializer_classes = {'post': AdapterConfigCreateSerializer}
     permission_classes = [FeaturePermission]
     feature_key = FEATURE_DEMO_SETUP
     method_permissions = {'post': FeaturePrivilege.READWRITE}
-
-    def post(self, request):
-        record = AdapterConfig.objects.create(**request.validated_data)
-        return FdcJsonResponse(
-            True,
-            message='Adapter configuration saved. No real connection was attempted.',
-            result=build_creation_result('adapters', record.id),
-        )
-
 
 class SetupDetailView(ContractAPIView):
     permission_classes = [FeaturePermission]

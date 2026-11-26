@@ -6,6 +6,9 @@ Read `README.md`, `docs/AI_HANDOFF.md`, `TODO.md`, and
 `docs/ASSISTANT_SSE_PROTOCOL.md` before changing the assistant flow. Inspect the
 current code and `git status` rather than assuming services are running or the
 working tree is clean. Update these documents when behavior or priorities change.
+Use docs/DEMO_FLOW.md for the complete login/CRUD/agent/log reading order, and
+docs/SAML.md for optional Keycloak login. PW/vulnerability integrations are deferred.
+Session UI metadata never replaces Django permissions; retain readonly list states.
 
 ## Project intent
 
@@ -34,9 +37,18 @@ configuration; do not add actual telecom integrations unless explicitly asked.
 
 ## Next priority
 
-Follow TODO.md: server-side conversation/tool history, multi-step failure tests,
-then idempotent creates. These are planned work, not already implemented.
+Follow TODO.md: durable history, partial-failure regression tests, idempotent
+creates and a device-free log investigation slice are implemented. Broader
+real-model recovery evaluations and production ingestion remain future work.
 Keep request/run credentials separate from longer-lived conversation state.
+Read docs/CONVERSATIONS.md before changing history. Browser prose is not tool
+evidence; append endpoints require both user Session/CSRF and a Gateway credential.
+Read docs/IDEMPOTENT_CREATES.md and docs/LOG_INVESTIGATION.md before changing
+these flows. Log text is untrusted; investigation mode MUST exclude create tools
+in the Broker allowlist. Sample logs are fictional, not vendor telemetry. Do not
+infer real compromise or implement network/malware replay. Preserve dataset ownership.
+For evaluation work read docs/LOG_SCENARIO_EVALUATION.md. Keep scenario oracles
+separate from model inputs; structural evidence checks are not semantic grading.
 
 ## Work and verification
 

@@ -143,6 +143,8 @@ class ContractAPIView(APIView):
         serializer_class = self.get_input_serializer_class()
         if source == 'body' and request.query_params:
             raise ValidationError({'query': ['Unexpected query parameters.']})
+        if self.restore_saved_operation(request):
+            return
         if serializer_class is EmptySerializer:
             # Django's test client and some browsers attach a content type to an
             # empty POST. Do not invoke a parser unless input actually exists.
@@ -166,6 +168,10 @@ class ContractAPIView(APIView):
             'validation',
             f'{type(serializer).__name__} accepted {source} input',
         )
+
+    def restore_saved_operation(self, request):
+        """Optional replay hook; always runs AFTER authentication and permissions."""
+        return False
 
     def handle_exception(self, exc):
         if isinstance(exc, (NotAuthenticated, PermissionDenied)):

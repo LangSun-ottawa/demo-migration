@@ -77,6 +77,7 @@ class DeterministicAssistantProvider:
             run_id=request.tool_broker.run_id,
             execution_token=request.tool_broker.execution_token,
             tool_name=QUERY_VM_CONTEXT,
+            call_id=call_id,
             raw_args={'record_id': request.page_state.selected_record_id},
         )
         yield AgentEvent(
@@ -107,6 +108,10 @@ class DeterministicAssistantProvider:
             yield AgentEvent(type='delta', data={'text': f'{word}{suffix}'})
 
     async def _stream_setup(self, request: AgentRunRequest) -> AsyncIterator[AgentEvent]:
+        if request.page_state.mode == 'investigation' or any(word in request.question.lower() for word in ('logs', 'investigate', 'connecting', '日志', '排查')):
+            async for event in self._stream_logs(request):
+                yield event
+            return
         tool_name = self._setup_intent(request)
         if tool_name is None:
             yield AgentEvent(
@@ -134,6 +139,7 @@ class DeterministicAssistantProvider:
                 run_id=request.run_id,
                 execution_token=request.tool_broker.execution_token,
                 tool_name=QUERY_SETUP_STATE,
+                call_id=query_call_id,
                 raw_args={},
             )
             yield AgentEvent(
@@ -174,6 +180,7 @@ class DeterministicAssistantProvider:
             run_id=request.run_id,
             execution_token=request.tool_broker.execution_token,
             tool_name=tool_name,
+            call_id=call_id,
             raw_args=args,
         )
         yield AgentEvent(
@@ -200,6 +207,37 @@ class DeterministicAssistantProvider:
             type='delta',
             data={'text': f"{labels[tool_name]} was created successfully through the Django API."},
         )
+
+    async def _stream_logs(self, request: AgentRunRequest) -> AsyncIterator[AgentEvent]:
+        """Explicit mock: real bounded evidence queries, no model or causal inference."""
+        query = [('get_log_schema', {}), ('list_log_datasets', {})]
+        evidence = []
+        for index in range(3):
+            name, args = query[index]
+            call_id = f'{request.run_id}:logs-{index}'
+            yield AgentEvent(type='tool_start', data={'call_id': call_id, 'name': name})
+            result = await self.tool_broker.execute(run_id=request.run_id,
+                execution_token=request.tool_broker.execution_token, tool_name=name, raw_args=args, call_id=call_id)
+            yield AgentEvent(type='tool_result', data={'call_id': call_id, 'name': name, 'ok': result.ok,
+                'summary': 'Evidence loaded' if result.ok else result.error.message,
+                'result': result.result, 'error': result.error.model_dump() if result.error else None})
+            if not result.ok:
+                return
+            if index == 1:
+                datasets = (result.result or {}).get('datasets', [])
+                selected = str(request.page_state.log_dataset_id) if request.page_state.log_dataset_id else None
+                candidates = [d for d in datasets if d['id'] == selected] if selected else datasets
+                if len(candidates) != 1:
+                    yield AgentEvent(type='delta', data={'text': 'Deterministic demo: select one owned log dataset first.'})
+                    return
+                dataset = candidates[0]
+                query.append(('query_log_events', {'dataset_id': dataset['id'],
+                    'start': dataset['start'], 'end': dataset['end'], 'limit': 30}))
+            if index == 2:
+                evidence = (result.result or {}).get('events', [])
+        lines = [f"Event #{e['id']} at {e['occurred_at']}: {e['action']} — {e['message']}" for e in evidence]
+        yield AgentEvent(type='delta', data={'text': 'Deterministic demo (no model reasoning). Observed evidence:\n\n'
+            + '\n'.join(lines) + '\n\nCorrelation is not proof of causation. No business records were changed.'})
 
     @staticmethod
     def _detect_setup_tool(text: str) -> str | None:

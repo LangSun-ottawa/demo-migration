@@ -61,6 +61,7 @@ export type AssistantStreamEvent =
         request_id: string;
         run_id: string;
         provider: string;
+        conversation_id?: string | null;
       };
     }
   | {
@@ -84,7 +85,7 @@ export type AssistantStreamEvent =
   | { type: 'error'; data: { code: string; message: string } }
   | {
       type: 'done';
-      data: { request_id: string; run_id: string; status: string };
+      data: { request_id: string; run_id: string; status: string; conversation_id?: string | null };
     };
 
 export function parseSseBlock(block: string): AssistantStreamEvent | null {

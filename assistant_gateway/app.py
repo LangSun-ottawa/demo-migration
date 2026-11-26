@@ -9,9 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from assistant_gateway.config import get_assistant_settings
+from assistant_gateway.conversations import ConversationClient, ConversationError
 from assistant_gateway.protocol import (
     AgentEvent,
     AgentRunRequest,
+    ChatTurn,
     AssistantRequest,
     PageState,
     ToolBrokerDescriptor,
@@ -30,6 +32,7 @@ from assistant_gateway.run_store import (
 )
 from assistant_gateway.tools import (
     SETUP_TOOLS,
+    LOG_ROUTES,
     QUERY_VM_CONTEXT,
     DjangoApiClient,
     ToolBrokerService,
@@ -40,7 +43,8 @@ LOGGER = logging.getLogger('assistant_gateway')
 SETTINGS = get_assistant_settings()
 RUN_STORE = InMemoryAgentRunStore(SETTINGS.agent_run_ttl_seconds)
 DJANGO_CLIENT = DjangoApiClient(SETTINGS.django_base_url)
-TOOL_BROKER = ToolBrokerService(RUN_STORE, DJANGO_CLIENT)
+HISTORY_CLIENT = ConversationClient(SETTINGS.django_base_url, SETTINGS.assistant_history_token.get_secret_value())
+TOOL_BROKER = ToolBrokerService(RUN_STORE, DJANGO_CLIENT, HISTORY_CLIENT)
 
 
 def encode_sse(event: str, data: dict) -> str:
@@ -53,6 +57,10 @@ def get_run_store() -> InMemoryAgentRunStore:
 
 def get_tool_broker() -> ToolBrokerService:
     return TOOL_BROKER
+
+
+def get_history_client() -> ConversationClient:
+    return HISTORY_CLIENT
 
 
 def get_assistant_provider(
@@ -92,6 +100,8 @@ async def stream_gateway_events(
     agent_request: AgentRunRequest,
     provider: AssistantProvider,
     run_store: InMemoryAgentRunStore,
+    history_client: ConversationClient | None = None,
+    django_cookie: str = '',
 ) -> AsyncIterator[str]:
     LOGGER.info(
         'agent_run_started request_id=%s run_id=%s provider=%s',
@@ -105,15 +115,26 @@ async def stream_gateway_events(
             'request_id': agent_request.request_id,
             'run_id': agent_request.run_id,
             'provider': SETTINGS.assistant_provider,
+            'conversation_id': str(agent_request.conversation_id) if agent_request.conversation_id else None,
         },
     )
     final_status = 'completed'
+    answer = ''
     try:
         async with asyncio.timeout(SETTINGS.agent_run_timeout_seconds):
             async for event in provider.stream(agent_request):
                 if await browser_request.is_disconnected():
                     final_status = 'cancelled'
                     break
+                if event.type == 'delta':
+                    answer = (answer + str(event.data.get('text', '')))[:12000]
+                if history_client and agent_request.conversation_id and event.type == 'tool_result' and event.data.get('name') == 'ask_user_question':
+                    call_id = event.data['call_id']
+                    args = {'question': event.data.get('question', ''), 'missing_fields': event.data.get('missing_fields', [])}
+                    await history_client.tool(django_cookie, agent_request.run_id, call_id,
+                        'ask_user_question', 'started', arguments=args)
+                    await history_client.tool(django_cookie, agent_request.run_id, call_id,
+                        'ask_user_question', 'finished', result={'ok': event.data['ok'], 'result': args})
                 yield encode_sse(event.type, event.data)
                 if event.type == 'error':
                     final_status = 'failed'
@@ -139,6 +160,11 @@ async def stream_gateway_events(
         )
     finally:
         await run_store.delete(agent_request.run_id)
+        if history_client and agent_request.conversation_id:
+            try:
+                await history_client.finish(django_cookie, agent_request.run_id, answer, final_status)
+            except ConversationError:
+                LOGGER.warning('conversation_finish_failed run_id=%s', agent_request.run_id)
         LOGGER.info(
             'agent_run_finished request_id=%s run_id=%s status=%s',
             agent_request.request_id,
@@ -153,6 +179,7 @@ async def stream_gateway_events(
                 'request_id': agent_request.request_id,
                 'run_id': agent_request.run_id,
                 'status': final_status,
+                'conversation_id': str(agent_request.conversation_id) if agent_request.conversation_id else None,
             },
         )
 
@@ -201,11 +228,14 @@ async def invoke_tool(
             execution_token=token,
             tool_name=tool_name,
             raw_args=invocation.args,
+            call_id=invocation.call_id,
         )
     except RunNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except InvalidExecutionTokenError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except ConversationError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
 
 @app.post('/assistant/stream')
@@ -214,24 +244,44 @@ async def assistant_stream(
     request: Request,
     provider: AssistantProvider = Depends(get_assistant_provider),
     run_store: InMemoryAgentRunStore = Depends(get_run_store),
+    history_client: ConversationClient = Depends(get_history_client),
 ):
     request_id = str(uuid4())
     run_id = str(uuid4())
+    cookie = _django_session_cookie(request)
+    durable_history = []
+    conversation_id = None
+    trusted_conversation = payload.conversation
+    if payload.page_state.route == '/new/setup':
+        try:
+            stored = await history_client.begin(cookie, str(payload.conversation_id) if payload.conversation_id else None,
+                run_id, request_id, payload.question)
+        except ConversationError as exc:
+            raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+        conversation_id = stored['conversation_id']
+        durable_history = stored['history']
+        trusted_conversation = []
+        for turn in durable_history:
+            trusted_conversation.append(ChatTurn(role='user', content=turn['question'][:1000]))
+            if turn['assistant_text']:
+                trusted_conversation.append(ChatTurn(role='assistant', content=turn['assistant_text'][:1000]))
     allowed_tools = (
-        set(SETUP_TOOLS)
+        (set(LOG_ROUTES) if payload.page_state.mode == 'investigation' else set(SETUP_TOOLS))
         if payload.page_state.route == '/new/setup'
         else {QUERY_VM_CONTEXT}
     )
     execution_token = await run_store.create(
         request_id=request_id,
         run_id=run_id,
-        django_cookie=_django_session_cookie(request),
+        django_cookie=cookie,
         allowed_tools=allowed_tools,
+        conversation_id=conversation_id,
     )
     agent_request = AgentRunRequest(
-        **payload.model_dump(),
+        **{**payload.model_dump(), 'conversation_id': conversation_id, 'conversation': trusted_conversation},
         request_id=request_id,
         run_id=run_id,
+        history=durable_history,
         allowed_tools=sorted(
             allowed_tools | {'ask_user_question'}
             if payload.page_state.route == '/new/setup'
@@ -249,6 +299,8 @@ async def assistant_stream(
             agent_request=agent_request,
             provider=provider,
             run_store=run_store,
+            history_client=history_client if conversation_id else None,
+            django_cookie=cookie,
         ),
         media_type='text/event-stream',
         headers={

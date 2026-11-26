@@ -6,12 +6,17 @@ then inspect/edit/delete records in traditional management pages.
 
 For AI/developer continuation, read [AGENTS.md](AGENTS.md),
 [TODO.md](TODO.md) and [AI handoff](docs/AI_HANDOFF.md).
-Next: server-side conversation/tool history, business-chain failure recovery,
-then idempotent writes. These are planned work, not already implemented.
+Server-owned history, partial-failure regression coverage, idempotent creates and
+a device-free log investigation slice are implemented. Broader recovery
+evaluations and production ingestion remain future work.
 
 ## Flow
 
+**Start here to follow the implementation: [Demo flow and reading order](docs/DEMO_FLOW.md).**
+
 ```text
+Password login / Keycloak SAML -> Django Session + Group permissions
+Angular CRUD pages -----------------------> Django API -> SQLite
 Angular chat -> FastAPI Gateway -> Pi Agent Service
                                   -> local ask_user_question
                                   -> FastAPI Tool Broker -> Django API -> SQLite
@@ -22,7 +27,8 @@ Angular chat -> FastAPI Gateway -> Pi Agent Service
   FeaturePermission, DRF serializers and business relationships for every write.
 - Gateway retains cookies only for the run; Pi gets a short-lived execution token.
 - Pi selects tools from TypeBox definitions, asks for missing fields, and reasons
-  over actual results. Broker validates token/allowlist/Pydantic args and calls
+  over actual results, including trusted prior tool calls restored from Django.
+  Broker validates token/allowlist/Pydantic args and calls
   fixed Django routes. It does not accept arbitrary URLs, methods or headers.
 - AI Markdown is safely rendered; cards use Django's explicit created_record.
 - Profile → User and Instance → Adapter are independent business dependencies.
@@ -32,6 +38,10 @@ Angular chat -> FastAPI Gateway -> Pi Agent Service
 The business Pi HTTP service is implemented in `services/pi-agent` and wraps the
 local Pi CLI. The deterministic provider is a no-key reasoning mock using real
 Broker/Django calls. `services/pi-docs` is a separate document Docker sandbox.
+FastAPI is an independent Gateway/Broker, not Django middleware. The UI reports
+read-only/readwrite/no-access from Django session metadata. Readonly lists hide
+mutation controls; Django still reauthorizes every request. Lists include explicit
+loading, network-error/retry and login guidance rather than false empty states.
 
 ## Install
 
@@ -85,12 +95,32 @@ npm --prefix frontend start -- --host 127.0.0.1
 ```
 
 Open **http://127.0.0.1:4200/setup**. Demo login: `demo` / `DemoPass123!`.
+Optional real Keycloak Docker SAML login is available alongside password login;
+see [SAML setup and test accounts](docs/SAML.md). Django Sessions, CSRF and Group
+permissions remain the business authorization boundary.
 Try creating a Profile and User, or an Instance and Adapter. Pi requests missing
 information before submission; created cards link to the corresponding lists.
 
 Health: `http://127.0.0.1:8002/health` and `http://127.0.0.1:8010/health`.
 Health alone does not prove model connectivity; test a clarification/query through
 the chat when checking Pi access.
+
+For the no-device log demo, expand **Log investigation** in the same chat page,
+click **Load simulated incident**, then send the prepared question. Investigation
+mode grants only log-read tools (no creates). The AI queries real stored events;
+the timeline and **View original** show its evidence. Uploads currently require
+normalized UTF-8 JSONL, not arbitrary vendor syslog. See
+[LOG_INVESTIGATION.md](docs/LOG_INVESTIGATION.md).
+
+Choose normal observations, policy block or insufficient evidence in the sample
+selector; changing the loaded dataset starts a fresh chat, not a history deletion.
+To repeat real-model evidence checks, run
+`.venv/bin/python backend/manage.py verify_log_scenarios`; see
+[LOG_SCENARIO_EVALUATION.md](docs/LOG_SCENARIO_EVALUATION.md) for grading limits.
+
+All four creates support user-scoped idempotency keys. Broker creates stable keys
+for same-conversation retries, and CRUD forms retain keys for unchanged pending
+submissions. See [IDEMPOTENT_CREATES.md](docs/IDEMPOTENT_CREATES.md) for boundaries.
 
 ## Code map and contracts
 
@@ -102,6 +132,7 @@ the chat when checking Pi access.
 | services/pi-agent | Pi HTTP/SSE service, tool schemas and execution handlers |
 | backend/demoapp | Django models, auth, permissions, serializers and business APIs |
 | services/pi-docs | Independent read-only document CLI/container experiment |
+| services/keycloak | Optional local SAML IdP and real protocol verification |
 
 Read [AI_HANDOFF.md](docs/AI_HANDOFF.md) for a file-by-file request walkthrough,
 [AGENT_ARCHITECTURE.md](docs/AGENT_ARCHITECTURE.md) for credential boundaries, and
@@ -109,8 +140,18 @@ Read [AI_HANDOFF.md](docs/AI_HANDOFF.md) for a file-by-file request walkthrough,
 
 Tool schemas declare required values; they do not automatically implement
 clarification or enforce that values came from the user. Pi coordinates tool
-selection; Django enforces business validity. Current history is recent browser
-text in sessionStorage, not a durable server-side conversation. See TODO.md.
+selection; Django enforces business validity. Setup history belongs to the logged-in
+Django user. Refresh restores the latest conversation, and **New chat** starts
+an independent one. Cookies and tokens are not saved in conversation records.
+History expires 30 days after creation; run the cleanup command periodically:
+
+```bash
+.venv/bin/python backend/manage.py purge_assistant_history
+```
+
+Set the same private `ASSISTANT_HISTORY_TOKEN` for Django and Gateway before
+deployment; `.env.example` has a local-demo-only default. This credential is not
+sent to Pi. See [conversation contract](docs/CONVERSATIONS.md) and TODO.md.
 
 ## Verification
 
@@ -132,6 +173,12 @@ npm test -- --watch=false --browsers=ChromeHeadless
 Pi document path-policy tests: `npm --prefix services/pi-docs test`.
 Build frontend assets before using Django's `/new/setup` shell:
 `npm --prefix frontend run build`.
+
+Readonly authorization proof (including real Pi denial): see
+[READONLY_AUTHORIZATION.md](docs/READONLY_AUTHORIZATION.md). Offline integration
+tests force all four create calls through real Gateway/Broker/Django; optional
+`manage.py verify_readonly_agent` exercises the running Pi service with a
+temporary readonly login and checks that no business rows are added.
 
 ## Older migration examples
 

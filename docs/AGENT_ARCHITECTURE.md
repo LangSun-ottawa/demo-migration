@@ -48,8 +48,10 @@ Content-Type: application/json
 Cookie: sessionid=...
 ```
 
-The browser controls only `question`, bounded `conversation`, and the validated
-`page_state`. It cannot choose tools or the Tool Broker address.
+For setup the browser controls only `question`, `conversation_id`, and validated
+`page_state`. Gateway loads owner-checked conversation/tool history from Django,
+ignoring browser prose as history. The older VM demo retains its conversation
+array. The browser cannot choose tools or the Tool Broker address.
 
 ## Gateway to Pi protocol
 
@@ -61,7 +63,8 @@ Authorization: Bearer {PI_AGENT_SERVICE_TOKEN}
 Accept: text/event-stream
 ```
 
-The payload contains `request_id`, `run_id`, the validated browser input,
+The payload contains `request_id`, `run_id`, `conversation_id`, trusted `history`,
+the validated question/page state,
 `allowed_tools`, and a server-created `tool_broker` descriptor. The descriptor's
 `base_url` comes only from `TOOL_BROKER_BASE_URL` configuration.
 
@@ -106,9 +109,14 @@ Pi can use a new Profile ID in a subsequent User create in the same run.
 
 Pi tool_result carries structured data; delta carries model prose/Markdown.
 Angular renders sanitized Markdown and cards from successful created_record
-results. Each user message starts a new run. Cross-turn continuity currently
-uses browser-supplied recent user/assistant text, not server-owned tool history.
-Full failure recovery and idempotency remain TODO.
+results. Each user message starts a new run; Django stores owner-scoped turns
+and actual Broker calls/results for cross-turn continuity and refresh restore.
+History append requires the user's Session/CSRF and a separate Gateway credential;
+Pi never receives that credential. See CONVERSATIONS.md for retention/limits.
+Scoped Django-create idempotency is implemented (IDEMPOTENT_CREATES.md); broader
+failure-recovery evaluations remain TODO. Investigation mode grants only the six
+log-read tools plus clarification; no create tools. Log datasets are owner-scoped
+and the synthetic fixture is fictional (LOG_INVESTIGATION.md).
 
 ### Older deterministic VM flow
 

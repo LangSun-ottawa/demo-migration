@@ -1,4 +1,5 @@
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -18,12 +19,15 @@ class PageState(BaseModel):
 
 class SetupPageState(BaseModel):
     route: Literal['/new/setup']
+    log_dataset_id: UUID | None = None
+    mode: Literal['setup', 'investigation'] = 'setup'
 
 
 class AssistantRequest(BaseModel):
     question: str = Field(min_length=1, max_length=500)
     page_state: PageState | SetupPageState
     conversation: list[ChatTurn] = Field(default_factory=list, max_length=20)
+    conversation_id: UUID | None = None
 
 
 class ToolBrokerDescriptor(BaseModel):
@@ -37,6 +41,7 @@ class AgentRunRequest(AssistantRequest):
     run_id: str
     allowed_tools: list[str]
     tool_broker: ToolBrokerDescriptor
+    history: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AgentEvent(BaseModel):
@@ -46,6 +51,7 @@ class AgentEvent(BaseModel):
 
 class ToolInvocation(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
+    call_id: str | None = Field(default=None, min_length=1, max_length=256)
 
 
 class ToolError(BaseModel):

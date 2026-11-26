@@ -33,3 +33,4 @@ migrationnote.md
 # Personal interview preparation notes, not project documentation.
 /TODO_README.md
 *.code-workspace
+/.local/saml/

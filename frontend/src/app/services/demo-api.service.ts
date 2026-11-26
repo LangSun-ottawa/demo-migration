@@ -60,6 +60,8 @@ export interface ContractMetadata {
 export interface SessionResult {
   authenticated: boolean;
   username: string | null;
+  setup_access?: 'none' | 'readonly' | 'readwrite';
+  saml_enabled?: boolean;
   contract: ContractMetadata;
   trace: TraceStep[];
 }

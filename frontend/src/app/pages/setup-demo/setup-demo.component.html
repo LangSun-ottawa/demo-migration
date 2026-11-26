@@ -5,12 +5,14 @@
       <h1>Admin setup assistant</h1>
       <p>Tell the assistant what to create. Every write still passes through Django authentication and permissions.</p>
     </div>
-    <span class="status" [class.online]="authenticated">{{ authenticated ? 'Signed in' : 'Login required' }}</span>
+    <span class="status" [class.online]="authenticated">{{ sessionLoading ? 'Checking session…' : authenticated ? (setupAccess === 'readwrite' ? 'Signed in · Read/write' : setupAccess === 'readonly' ? 'Signed in · Read only' : 'Signed in · No access') : 'Login required' }}</span>
+    @if (authenticated) { <button type="button" class="prompt" [disabled]="busy" (click)="logout()">Sign out</button> }
   </header>
 
   @if (error) { <div class="notice error">{{ error }}</div> }
 
-  @if (!authenticated) {
+  @if (sessionLoading) { <p role="status">Checking your Django session…</p> }
+  @else if (!authenticated) {
     <section class="login-card">
       <div><h2>Sign in first</h2><p>The chatbot uses your Django session. The demo account is pre-filled.</p></div>
       <form [formGroup]="loginForm" (ngSubmit)="login()">
@@ -18,22 +20,52 @@
         <label>Password<input type="password" formControlName="password" autocomplete="current-password"></label>
         <button type="submit" [disabled]="busy">{{ busy ? 'Signing in…' : 'Login' }}</button>
       </form>
+      @if (samlEnabled) { <p><a href="/api/demo/auth/saml/login/">Sign in with SSO · Keycloak</a></p> }
     </section>
+  } @else if (setupAccess === 'none') {
+    <p class="notice" role="status">Your account has no demo permissions. Ask an administrator for access, or sign out to use another account.</p>
   } @else {
+    @if (setupAccess === 'readonly') { <p class="notice" role="status">Read-only access: you can ask questions and investigate logs. Django will reject creates, edits and deletes.</p> }
     <div class="workspace">
       <section class="chat-card">
         <div class="chat-heading">
-          <div><h2>What should I create?</h2><p>I can call only these four registered tools.</p></div>
-          <span class="live-dot">Agent ready</span>
+          <div><h2>How can I help?</h2><p>Create demo records or investigate log evidence.</p></div>
+          <button type="button" class="prompt" [disabled]="busy" (click)="newConversation()">New chat</button>
         </div>
+        <details class="log-source">
+          <summary>Log investigation · simulated sample or JSONL upload</summary>
+          <p>No devices required. Sample logs are fictional. Loading another dataset starts a fresh chat; saved history is not deleted.</p>
+          @if (setupAccess === 'readonly') { <p>Importing or creating a sample requires read/write access. You can investigate datasets already owned by your account.</p> }
+          <label>Sample scenario
+            <select [value]="sampleScenario" [disabled]="busy || logBusy" (change)="sampleScenario = $any($event.target).value">
+              <option value="normal">Normal observations</option>
+              <option value="policy_block">Policy block</option>
+              <option value="insufficient">Insufficient evidence</option>
+            </select>
+          </label>
+          <button type="button" class="prompt" [disabled]="busy || logBusy || setupAccess !== 'readwrite'" (click)="importLogs()">Load simulated incident</button>
+          <label>Upload normalized JSONL (max 1 MiB / 500 events)
+            <input type="file" accept=".jsonl,.ndjson" [disabled]="busy || logBusy || setupAccess !== 'readwrite'" (change)="onLogFile($event)">
+          </label>
+          <label>Selected dataset
+            <select [value]="logDatasetId ?? ''" [disabled]="busy || logBusy" (change)="selectDataset($any($event.target).value)">
+              <option value="">None</option>
+              @for (dataset of datasets; track dataset.id) {
+                <option [value]="dataset.id">{{ dataset.simulated ? '[SIMULATED]' : '[UPLOADED]' }} {{ dataset.name }} · {{ dataset.event_count }} events</option>
+              }
+            </select>
+          </label>
+          @if (logBusy) { <p>Importing…</p> }
+        </details>
         <div class="quick-actions" aria-label="Example requests">
-          @for (prompt of prompts; track prompt) {
-            <button type="button" class="prompt" [disabled]="busy" (click)="usePrompt(prompt)">{{ prompt }}</button>
+          @for (prompt of setupAccess === 'readonly' ? readPrompts : prompts; track prompt) {
+            <button type="button" class="prompt" [disabled]="busy || historyLoading" (click)="usePrompt(prompt)">{{ prompt }}</button>
           }
         </div>
         <div class="conversation" aria-live="polite">
+          @if (historyLoading) { <p>Restoring your conversation…</p> }
           @if (!messages.length) {
-            <div class="welcome"><span>AI</span><p>Try “Create an Admin Profile”, then create a user, an instance, and an adapter.</p></div>
+            <div class="welcome"><span>AI</span><p>{{ setupAccess === 'readonly' ? 'Ask about existing records or investigate your log datasets.' : 'Try “Create an Admin Profile”, then create a user, an instance, and an adapter.' }}</p></div>
           }
           @for (message of messages; track $index) {
             <div class="message" [class.user]="message.role === 'user'">
@@ -46,13 +78,16 @@
                 }
                 @for (card of message.cards ?? []; track card.callId) {
                   <section class="created-card" aria-label="Created record">
-                    <div class="created-heading"><span>✓ {{ card.title }} created</span><small>#{{ card.id }}</small></div>
+                    <div class="created-heading"><span>✓ {{ card.title }} {{ card.replayed ? 'previously created · retry recovered' : 'created' }}</span><small>#{{ card.id }}</small></div>
                     <h3>{{ card.name }}</h3>
                     <dl>@for (field of card.fields; track field.label) {
                       <div><dt>{{ field.label }}</dt><dd>{{ field.value }}</dd></div>
                     }</dl>
                     <a [routerLink]="card.route" [queryParams]="{ record: card.id }">View record →</a>
                   </section>
+                }
+                @for (timeline of message.timelines ?? []; track $index) {
+                  <app-evidence-timeline [timeline]="timeline" />
                 }
               } @else {
                 <p>{{ message.content }}</p>
@@ -64,8 +99,12 @@
           <div class="tool-log"><strong>Function calls</strong>@for (activity of toolActivity; track activity) { <span>{{ activity }}</span> }</div>
         }
         <div class="composer">
+          <label>Mode <select [value]="assistantMode" [disabled]="busy" (change)="assistantMode = $any($event.target).value">
+            <option value="setup">Business records</option><option value="investigation">Investigate logs · read only</option>
+          </select></label>
           <textarea [formControl]="question" (keydown)="onComposerKeydown($event)" aria-label="Message" aria-describedby="composer-hint" rows="2" placeholder="Ask the assistant to create something…"></textarea>
-          <button type="button" (click)="send()" [disabled]="busy || !question.value.trim()">{{ busy ? 'Running…' : 'Send' }}</button>
+          <button type="button" (click)="send()" [disabled]="busy || historyLoading || !question.value.trim()">{{ busy ? 'Running…' : 'Send' }}</button>
+          @if (busy) { <button type="button" class="prompt" (click)="cancel()">Stop</button> }
           <small id="composer-hint" class="composer-hint">Enter to send · Shift+Enter for a new line</small>
         </div>
       </section>

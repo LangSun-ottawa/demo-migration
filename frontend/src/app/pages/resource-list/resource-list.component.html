@@ -1,15 +1,19 @@
 <main class="list-page">
   <header>
     <div><a routerLink="/setup">← Back to assistant</a><h1>{{ title }}</h1><p>Traditional Django-backed list and CRUD controls.</p></div>
-    <button type="button" (click)="reset()">+ Create {{ singular }}</button>
+    <div class="row-actions"><button class="secondary" type="button" [disabled]="busy || loading" (click)="load()">Refresh</button>
+    @if (canWrite && !loadFailed) { <button type="button" [disabled]="busy || loading" (click)="reset()">+ Create {{ singular }}</button> }</div>
   </header>
 
-  @if (error) { <div class="notice error">{{ error }}</div> }
-  @if (message) { <div class="notice success">{{ message }}</div> }
+  @if (error) { <div class="notice error" role="alert">{{ error }} @if (!authenticated) { <a routerLink="/setup">Sign in →</a> }</div> }
+  @if (message) { <div class="notice success" role="status">{{ message }}</div> }
+  @if (authenticated && !canWrite && !loading && !loadFailed) { <p class="notice">Read-only access. You can view records, but cannot create, edit or delete them.</p> }
 
+  @if (canWrite && !loadFailed) {
   <section class="editor">
     <h2>{{ editingId ? 'Edit' : 'Create' }} {{ singular }}</h2>
     <form [formGroup]="form" (ngSubmit)="save()">
+      <fieldset [disabled]="busy || loading">
       @if (resource === 'profiles') {
         <label>Name<input formControlName="name"></label>
         <label>Access<select formControlName="access_level"><option value="readonly">Read only</option><option value="readwrite">Read/write</option></select></label>
@@ -29,13 +33,17 @@
         <label>Endpoint<input formControlName="endpoint"></label>
         <label>Instance<select formControlName="instance_id"><option [ngValue]="0">Select instance</option>@for (item of snapshot.instances; track item.id) { <option [ngValue]="item.id">{{ item.name }}</option> }</select></label>
       }
-      <div class="form-actions"><button type="submit" [disabled]="busy">{{ busy ? 'Saving…' : 'Save' }}</button>@if (editingId) { <button class="secondary" type="button" (click)="reset()">Cancel</button> }</div>
+      <div class="form-actions"><button type="submit" [disabled]="busy || loading">{{ busy ? 'Saving…' : 'Save' }}</button>@if (editingId) { <button class="secondary" type="button" (click)="reset()">Cancel</button> }</div>
+      </fieldset>
     </form>
   </section>
+  }
 
   <section class="table-card">
     <div class="table-title"><h2>{{ title }}</h2><span>{{ rows.length }} total</span></div>
-    @if (!rows.length) {
+    @if (loading) { <div class="empty" role="status">Loading records…</div> }
+    @else if (loadFailed) { <div class="empty">Records could not be loaded. Check your login or permissions, then <button type="button" (click)="load()">Retry</button>.</div> }
+    @else if (!rows.length) {
       <div class="empty">No records yet. Create one here or ask the assistant.</div>
     } @else {
       <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Details</th><th>Related to</th><th>Actions</th></tr></thead>
@@ -43,7 +51,7 @@
           <tr [class.highlighted]="row.id === highlightedId"><td>#{{ row.id }}</td><td><strong>{{ row.name || row.username }}</strong>@if (row.email) { <small>{{ row.email }}</small> }</td>
             <td>{{ row.access_level || row.environment || row.adapter_type || '—' }}@if (row.status) { <small>{{ row.status }}</small> }</td>
             <td>{{ row.profile_name || row.instance_name || '—' }}@if (row.endpoint) { <small>{{ row.endpoint }}</small> }</td>
-            <td><div class="row-actions"><button class="edit" type="button" (click)="edit(row)">Edit</button><button class="delete" type="button" (click)="remove(row)">Delete</button></div></td>
+            <td>@if (canWrite) { <div class="row-actions"><button class="edit" type="button" [disabled]="busy" (click)="edit(row)">Edit</button><button class="delete" type="button" [disabled]="busy" (click)="remove(row)">Delete</button></div> } @else { Read only }</td>
           </tr>
         }</tbody>
       </table></div>

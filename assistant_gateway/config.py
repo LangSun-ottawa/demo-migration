@@ -41,6 +41,9 @@ class AssistantSettings(BaseSettings):
         default='sessionid',
         validation_alias='DJANGO_SESSION_COOKIE_NAME',
     )
+    assistant_history_token: SecretStr = Field(
+        default='demo-only-history-service-token', validation_alias='ASSISTANT_HISTORY_TOKEN',
+    )
     django_csrf_cookie_name: str = Field(
         default='csrftoken',
         validation_alias='DJANGO_CSRF_COOKIE_NAME',

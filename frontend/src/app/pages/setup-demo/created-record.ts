@@ -3,6 +3,7 @@ export interface CreatedRecordCard {
   title: string;
   name: string;
   id: number;
+  replayed: boolean;
   route: string;
   fields: Array<{ label: string; value: string }>;
 }
@@ -26,6 +27,7 @@ export function createdRecordCard(callId: string, tool: string, result?: Record<
   if (typeof name !== 'string') return null;
   return {
     callId, title: config.title, name, id: Number(record['id']), route: config.route,
+    replayed: result?.['operation_replayed'] === true,
     fields: config.fields.flatMap(([key, label]) => typeof record[key] === 'string' ? [{ label, value: record[key] as string }] : []),
   };
 }

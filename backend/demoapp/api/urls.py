@@ -26,8 +26,28 @@ from demoapp.api.views import (
     SetupSnapshotView,
 )
 from demoapp.api.validation_comparison import DrfEchoView, PydanticEchoView
+from demoapp.api.assistant_history import (
+    LatestConversationView, ConversationDetailView, StartTurnView, RecordToolView, FinishTurnView,
+)
+from demoapp.api.log_evidence import (
+    DatasetListView, DemoLogsView, LogUploadView, FindDeviceView, QueryEventsView,
+    EventDetailsView, RelatedEventsView, LogSchemaView,
+)
 
 urlpatterns = [
+    path('api/demo/secure/logs/datasets', DatasetListView.as_view()),
+    path('api/demo/secure/logs/demo', DemoLogsView.as_view()),
+    path('api/demo/secure/logs/upload', LogUploadView.as_view()),
+    path('api/demo/secure/logs/schema', LogSchemaView.as_view()),
+    path('api/demo/secure/logs/devices', FindDeviceView.as_view()),
+    path('api/demo/secure/logs/events', QueryEventsView.as_view()),
+    path('api/demo/secure/logs/event', EventDetailsView.as_view()),
+    path('api/demo/secure/logs/related', RelatedEventsView.as_view()),
+    path('api/demo/secure/assistant/conversations/latest', LatestConversationView.as_view()),
+    path('api/demo/secure/assistant/conversations/<uuid:conversation_id>', ConversationDetailView.as_view()),
+    path('api/demo/secure/assistant/internal/turns', StartTurnView.as_view()),
+    path('api/demo/secure/assistant/internal/turns/<uuid:run_id>/tools', RecordToolView.as_view()),
+    path('api/demo/secure/assistant/internal/turns/<uuid:run_id>/finish', FinishTurnView.as_view()),
     path('api/demo/secure/setup', SetupSnapshotView.as_view(), name='api-demo-setup'),
     path('api/demo/secure/setup/profiles', AdminProfileCreateView.as_view(), name='api-demo-create-profile'),
     path('api/demo/secure/setup/profiles/<int:record_id>', AdminProfileDetailView.as_view(), name='api-demo-profile-detail'),

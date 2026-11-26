@@ -107,3 +107,48 @@ class SetupDemoApiTests(TestCase):
 
         self.assertEqual(response.status_code, 409)
         self.assertIn('Delete dependent records first', response.json()['error'][0]['message'])
+
+    def test_partial_profile_user_failure_can_resume_without_recreating_profile(self):
+        from demoapp.models import AdminProfile, AdminUserRecord
+        self.user.groups.add(Group.objects.get(name='feature:demo_setup:readwrite'))
+        self.client.force_login(self.user)
+        profile = self.client.post('/api/demo/secure/setup/profiles',
+            {'name': 'Recovery profile', 'access_level': 'readonly'}, content_type='application/json')
+        profile_id = profile.json()['result']['created_record']['record']['id']
+        invalid = self.client.post('/api/demo/secure/setup/users',
+            {'username': 'recovered-user', 'email': 'not-an-email', 'profile_id': profile_id}, content_type='application/json')
+        self.assertEqual(invalid.status_code, 444)
+        self.assertTrue(AdminProfile.objects.filter(id=profile_id).exists())
+        self.assertFalse(AdminUserRecord.objects.filter(username='recovered-user').exists())
+        corrected = self.client.post('/api/demo/secure/setup/users',
+            {'username': 'recovered-user', 'email': 'valid@example.com', 'profile_id': profile_id}, content_type='application/json')
+        self.assertEqual(corrected.status_code, 200)
+        self.assertEqual(AdminUserRecord.objects.get(username='recovered-user').profile_id, profile_id)
+        self.assertEqual(AdminProfile.objects.filter(name='Recovery profile').count(), 1)
+
+    def test_invalid_dependency_cannot_create_user_or_adapter(self):
+        from demoapp.models import AdminUserRecord, AdapterConfig
+        self.user.groups.add(Group.objects.get(name='feature:demo_setup:readwrite'))
+        self.client.force_login(self.user)
+        for resource, data in [
+            ('users', {'username': 'bad-relation', 'email': 'valid@example.com', 'profile_id': 999999}),
+            ('adapters', {'name': 'bad-relation', 'adapter_type': 'rest', 'endpoint': 'example.invalid', 'instance_id': 999999}),
+        ]:
+            response = self.client.post('/api/demo/secure/setup/' + resource, data, content_type='application/json')
+            self.assertEqual(response.status_code, 444)
+        self.assertFalse(AdminUserRecord.objects.exists())
+        self.assertFalse(AdapterConfig.objects.exists())
+
+    def test_instance_survives_adapter_failure_and_corrected_retry_uses_same_id(self):
+        from demoapp.models import ManagedInstance, AdapterConfig
+        self.user.groups.add(Group.objects.get(name='feature:demo_setup:readwrite'))
+        self.client.force_login(self.user)
+        created = self.client.post('/api/demo/secure/setup/instances', {'name': 'Recovery instance', 'environment': 'test'}, content_type='application/json')
+        instance_id = created.json()['result']['created_record']['record']['id']
+        data = {'name': 'Recovery adapter', 'adapter_type': 'invalid', 'endpoint': 'example.invalid', 'instance_id': instance_id}
+        self.assertEqual(self.client.post('/api/demo/secure/setup/adapters', data, content_type='application/json').status_code, 444)
+        self.assertEqual(ManagedInstance.objects.filter(id=instance_id).count(), 1)
+        data['adapter_type'] = 'rest'
+        response = self.client.post('/api/demo/secure/setup/adapters', data, content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AdapterConfig.objects.get(name='Recovery adapter').instance_id, instance_id)

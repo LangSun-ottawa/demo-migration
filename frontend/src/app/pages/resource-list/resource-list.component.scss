@@ -11,6 +11,7 @@ button:disabled { opacity: .5; }
 .notice.error { background: #fef2f2; color: #991b1b; }.notice.success { background: #ecfdf5; color: #166534; }
 .editor, .table-card { margin-bottom: 1rem; padding: 1.15rem; border: 1px solid #e2e8f0; border-radius: 15px; background: white; box-shadow: 0 8px 24px rgba(15,23,42,.05); }
 form { display: grid; gap: .75rem; margin-top: .9rem; }
+fieldset { display: contents; border: 0; padding: 0; margin: 0; min-width: 0; }
 label { display: grid; gap: .3rem; color: #475569; font-size: .8rem; font-weight: 700; }
 input, select { box-sizing: border-box; width: 100%; padding: .65rem .7rem; border: 1px solid #cbd5e1; border-radius: 9px; background: white; font: inherit; }
 .form-actions, .row-actions { display: flex; gap: .45rem; align-items: end; }.secondary, .edit { background: #e2e8f0; color: #334155; }.delete { background: #fee2e2; color: #b91c1c; }

@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import include, path, re_path
 
 urlpatterns = [
+    path('api/demo/auth/saml/', include('demoapp.saml')),
     path('admin/', admin.site.urls),
     path('', include('demoapp.urls')),
 ]

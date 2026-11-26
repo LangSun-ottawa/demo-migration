@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -14,6 +14,8 @@ class AgentRunContext:
     allowed_tools: frozenset[str]
     token_digest: str
     expires_at: float
+    conversation_id: str | None = None
+    tool_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)
 
 
 class RunNotFoundError(Exception):
@@ -43,6 +45,7 @@ class InMemoryAgentRunStore:
         run_id: str,
         django_cookie: str,
         allowed_tools: set[str],
+        conversation_id: str | None = None,
     ) -> str:
         execution_token = secrets.token_urlsafe(32)
         context = AgentRunContext(
@@ -52,6 +55,7 @@ class InMemoryAgentRunStore:
             allowed_tools=frozenset(allowed_tools),
             token_digest=self._digest(execution_token),
             expires_at=time.monotonic() + self.ttl_seconds,
+            conversation_id=conversation_id,
         )
         async with self._lock:
             self._runs[run_id] = context

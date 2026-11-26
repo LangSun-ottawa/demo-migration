@@ -37,21 +37,21 @@ export class SetupDemoService {
     return this.http.get<FdcApiResponse<SetupSnapshot>>('/api/demo/secure/setup');
   }
 
-  createProfile(payload: { name: string; access_level: string }) {
+  createProfile(payload: { name: string; access_level: string }, operationId: string = crypto.randomUUID()) {
     return this.http.post<FdcApiResponse<SetupSnapshot>>(
-      '/api/demo/secure/setup/profiles', payload,
+      '/api/demo/secure/setup/profiles', payload, { headers: { 'Idempotency-Key': operationId } },
     );
   }
 
-  createUser(payload: { username: string; email: string; profile_id: number }) {
+  createUser(payload: { username: string; email: string; profile_id: number }, operationId: string = crypto.randomUUID()) {
     return this.http.post<FdcApiResponse<SetupSnapshot>>(
-      '/api/demo/secure/setup/users', payload,
+      '/api/demo/secure/setup/users', payload, { headers: { 'Idempotency-Key': operationId } },
     );
   }
 
-  createInstance(payload: { name: string; environment: string }) {
+  createInstance(payload: { name: string; environment: string }, operationId: string = crypto.randomUUID()) {
     return this.http.post<FdcApiResponse<SetupSnapshot>>(
-      '/api/demo/secure/setup/instances', payload,
+      '/api/demo/secure/setup/instances', payload, { headers: { 'Idempotency-Key': operationId } },
     );
   }
 
@@ -60,9 +60,9 @@ export class SetupDemoService {
     adapter_type: string;
     endpoint: string;
     instance_id: number;
-  }) {
+  }, operationId: string = crypto.randomUUID()) {
     return this.http.post<FdcApiResponse<SetupSnapshot>>(
-      '/api/demo/secure/setup/adapters', payload,
+      '/api/demo/secure/setup/adapters', payload, { headers: { 'Idempotency-Key': operationId } },
     );
   }
 
